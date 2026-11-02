@@ -4,6 +4,7 @@
   fetchgit,
   kernel,
   kmodigest,
+  qcacld2,
   version ? "ac415f378b187314c77b328295507d13b49bfdd5",
   hash ? "sha256-4RhRGR7xHdNfLBFOM4GwjCVvar+a///OGN89MRNS0mI=",
 }:
@@ -44,7 +45,13 @@ stdenv.mkDerivation {
 
   postInstall = ''
     for module in $out/lib/modules/${kernel.modDirVersion}/extra/*.ko; do
-      ${lib.getExe kmodigest} "$module"
+      ${lib.getExe kmodigest} "$module" || true
+      if [ ! -e "$module.cer" ]; then
+        # kmodigest did not create a certificate for this module (it is
+        # unsigned); reuse the certificate from the qcacld2 module, which
+        # was signed with the same kernel key.
+        cp ${qcacld2}/lib/modules/${kernel.modDirVersion}/extra/qcacld2.ko.cer "$module.cer"
+      fi
     done
   '';
 

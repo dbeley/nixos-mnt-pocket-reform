@@ -22,7 +22,7 @@
         default = self.nixosModules.pocket-reform-imx8mp;
       };
 
-      packages = forAllSystems (pkgs: {
+      packages = forAllSystems (pkgs: rec {
         qcacld2 = pkgs.callPackage ./packages/qcacld2.nix {
           kernel = pkgs.linuxPackages_latest.kernel;
         };
@@ -33,6 +33,7 @@
         mnt-pocket-dtb = pkgs.callPackage ./packages/mnt-pocket-dtb.nix { };
         lpc = pkgs.callPackage ./packages/lpc.nix {
           kernel = pkgs.linuxPackages_latest.kernel;
+          inherit qcacld2;
         };
       });
     };

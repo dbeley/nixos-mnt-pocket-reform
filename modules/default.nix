@@ -26,6 +26,7 @@ let
 
   lpc = pkgs.callPackage ../packages/lpc.nix {
     kernel = baseKernel;
+    inherit qcacld2;
   };
 
   # Add the MNT DTB to the nixpkgs kernel's dtbs output without rebuilding
