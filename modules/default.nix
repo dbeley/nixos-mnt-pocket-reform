@@ -38,9 +38,17 @@ let
       $out/dtbs/freescale/imx8mp-mnt-pocket-reform.dtb
   '';
 
-  kernelWithDtb = baseKernel // {
-    out = kernelOut;
-    outPath = kernelOut;
+  kernelWithDtb = kernelOut // {
+    inherit (baseKernel)
+      dev
+      modules
+      modDirVersion
+      version
+      name
+      meta
+      features
+      moduleBuildDependencies
+      ;
   };
 
   kernelPackages = pkgs.linuxPackages_latest // {
