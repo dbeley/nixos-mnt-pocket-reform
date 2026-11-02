@@ -7,10 +7,45 @@
 }:
 let
   cfg = config.hardware.mnt-pocket-reform;
+
+  # The nixpkgs kernel is already built and cached for aarch64. The MNT
+  # 6.19.6 kernel config builds ~7500 modules and takes many hours on the
+  # 4-core i.MX8MP, so we use the nixpkgs kernel and provide the missing
+  # MNT pieces (DTB, panel driver, system controller, Wi-Fi) out-of-tree.
+  baseKernel = pkgs.linuxPackages_latest.kernel;
+
+  mntDtb = pkgs.callPackage ../packages/mnt-pocket-dtb.nix {
+    kernel = baseKernel;
+  };
+
+  panel = pkgs.callPackage ../packages/panel-mnt-pocket-reform.nix {
+    kernel = baseKernel;
+  };
+
+  qcacld2 = pkgs.callPackage ../packages/qcacld2.nix {
+    kernel = baseKernel;
+  };
+
+  lpc = pkgs.callPackage "${nixos-hardware}/mnt/reform/lpc.nix" {
+    kernel = baseKernel;
+  };
+
+  # Add the MNT DTB to the nixpkgs kernel's dtbs output without rebuilding
+  # the kernel itself.
+  kernelWithDtb = baseKernel // {
+    dtbs = pkgs.runCommand "linux-dtbs-mnt-pocket" { } ''
+      mkdir -p $out
+      cp -rs ${baseKernel.dtbs}/* $out/ 2>/dev/null || true
+      install -Dm644 ${mntDtb}/imx8mp-mnt-pocket-reform.dtb \
+        $out/freescale/imx8mp-mnt-pocket-reform.dtb
+    '';
+  };
+
+  kernelPackages = pkgs.linuxPackages_latest // {
+    kernel = kernelWithDtb;
+  };
 in
 {
-  imports = [ (import "${nixos-hardware}/mnt/reform") ];
-
   options.hardware.mnt-pocket-reform = {
     enable = lib.mkEnableOption "MNT Pocket Reform with i.MX8MP hardware support";
 
@@ -27,24 +62,21 @@ in
 
   config = lib.mkIf cfg.enable {
     boot = {
-      # nixos-hardware's mnt-reform module provides the MNT kernel as mkDefault.
-      # Force it so that a global `boot.kernelPackages = pkgs.linuxPackages_latest`
-      # does not win.
-      # Vendored copy of nixos-hardware's mnt/reform kernel, modified to pass
-      # the trimmed config through buildLinux's `extraConfig`. The full MNT
-      # config builds ~7500 modules, which takes many hours on the 4-core
-      # i.MX8MP; the trimmed config is derived from the running Debian kernel
-      # with `localmodconfig`, plus the storage/crypto/display options that
-      # are not loaded on Debian (btrfs, dm-crypt, etc.).
-      kernelPackages = lib.mkForce (pkgs.callPackage ../kernel/kernel.nix { });
+      # Override the global `linuxPackages_latest` with the wrapped kernel
+      # (same kernel, dtbs output extended with the MNT DTB).
+      kernelPackages = lib.mkForce kernelPackages;
 
       extraModulePackages = [
-        (pkgs.callPackage ../packages/qcacld2.nix {
-          kernel = config.boot.kernelPackages.kernel;
-        })
+        panel
+        lpc
+        qcacld2
       ];
 
-      kernelModules = [ "qcacld2" ];
+      kernelModules = [
+        "panel-mnt-pocket-reform"
+        "reform2_lpc"
+        "qcacld2"
+      ];
       blacklistedKernelModules = [ "ath10k_sdio" ];
 
       kernelParams = [
@@ -60,35 +92,35 @@ in
       ];
 
       initrd = {
-        # Loaded early so the LUKS prompt is visible on the internal display.
+        # Boot-critical modules: NVMe + LUKS + btrfs + USB keyboard.
         kernelModules = [
-          "reset_imx7"
+          "nvme"
+          "nvme_core"
+          "dm_mod"
+          "dm_crypt"
+          "btrfs"
+          "ext4"
+          "mmc_block"
+          "usbhid"
+        ];
+
+        # Display modules are loaded by udev in stage 2; the temporary LUKS
+        # key means the first boot does not depend on them.
+        availableKernelModules = [
+          "imx-lcdif"
+          "samsung_dsim"
+          "pwm_imx27"
+          "pwm_bl"
+          "backlight"
           "mux_mmio"
           "mux_gpio"
           "gpio"
-          "fixed"
           "i2c-imx"
           "fan53555"
           "i2c_mux_pca954x"
           "imx_bus"
           "imx8mp-interconnect"
-          "pwm_imx27"
-          "pwm_bl"
-          "nwl-dsi"
-          "imx-dcss"
-          "imx-lcdif"
-          "samsung_dsim"
-          "panel_mnt_pocket_reform"
           "mxsfb"
-          "usbhid"
-          "governor_userspace"
-          "cpufreq_dt"
-          "mmc_block"
-          "nvme"
-        ];
-
-        availableKernelModules = [
-          "ext4"
           "usb_storage"
           "sd_mod"
         ];
