@@ -110,6 +110,16 @@ in
       ];
 
       initrd = {
+        # The crypttab references this key path, so the key file must be
+        # copied into the initrd; otherwise the LUKS device is never opened.
+        secrets = lib.mkIf (cfg.temporaryLuksKeyFile != null) {
+          "${cfg.temporaryLuksKeyFile}" = /. + cfg.temporaryLuksKeyFile;
+        };
+
+        # nixos-init/initrd-init mounts the fstab on /root; the mount point
+        # must exist in the initrd.
+        systemd.contents."/root/.keep".text = "";
+
         # Boot-critical modules: NVMe + LUKS + btrfs + USB keyboard.
         kernelModules = [
           "nvme"
