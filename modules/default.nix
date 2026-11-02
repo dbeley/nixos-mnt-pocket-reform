@@ -52,9 +52,7 @@ let
     mntPocketKernelWrapper = true;
   };
 
-  kernelPackages = pkgs.linuxPackages_latest // {
-    kernel = kernelWithDtb;
-  };
+  kernelPackages = pkgs.linuxPackagesFor kernelWithDtb;
 in
 {
   options.hardware.mnt-pocket-reform = {
