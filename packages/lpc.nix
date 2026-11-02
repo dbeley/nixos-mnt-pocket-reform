@@ -5,8 +5,8 @@
   kernel,
   kmodigest,
   qcacld2,
-  version ? "ac415f378b187314c77b328295507d13b49bfdd5",
-  hash ? "sha256-4RhRGR7xHdNfLBFOM4GwjCVvar+a///OGN89MRNS0mI=",
+  version ? "3f559de5f4ab26bc66a7fe925b83112fd6ccf9fe",
+  hash ? "sha256-uEqZhEftOo0zfQxdrnUfMYMOmMEi32+fS85Id00pqSo=",
 }:
 let
   reform-tools = fetchgit {
@@ -27,12 +27,6 @@ stdenv.mkDerivation {
     "format"
   ];
   nativeBuildInputs = kernel.moduleBuildDependencies;
-
-  postPatch = ''
-    # Linux 7.3 replaced power_supply_config.of_node with .fwnode.
-    sed -i 's/psy_cfg\.of_node = spi->dev\.of_node;/psy_cfg.fwnode = of_fwnode_handle(spi->dev.of_node);/' \
-      reform2_lpc.c
-  '';
 
   buildPhase = ''
     make -C "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build" M="$(pwd -P)" modules
