@@ -278,7 +278,6 @@ with lib.kernel;
   "INPUT_MISC" = yes;
   "INPUT_PM8941_PWRKEY" = yes;
   "INPUT_HISI_POWERKEY" = yes;
-  "SERIO_SERPORT" = no;
   "SERIO_AMBAKMI" = yes;
   "SERIAL_8250_CONSOLE" = yes;
   "SERIAL_8250_EXTENDED" = yes;
