@@ -110,17 +110,18 @@ in
       ];
 
       initrd = {
-        # The crypttab references this key path, so the key file must be
-        # copied into the initrd; otherwise the LUKS device is never opened.
-        # `null` means "same path inside and outside the initrd". Using
-        # `/. + path` would make evaluation impure; `null` lets the
-        # bootloader installer read the host file when it appends secrets.
-        secrets = lib.mkIf (cfg.temporaryLuksKeyFile != null) {
-          "${cfg.temporaryLuksKeyFile}" = null;
+        # extlinux does not support boot.initrd.secrets: its builder copies the
+        # initrd from the store verbatim and never runs append-initrd-secrets.
+        # The only way to make the temporary key available is to embed it in
+        # the initrd image itself. Referencing a host path is impure, so
+        # evaluation/installation of the temporary-key variant requires
+        # `--impure`. This option is null (and not evaluated) for normal builds.
+        systemd.contents = lib.mkIf (cfg.temporaryLuksKeyFile != null) {
+          "/etc/luks.key".source = /. + cfg.temporaryLuksKeyFile;
         };
 
-        # nixos-init/initrd-init mounts the fstab on /root; the mount point
-        # must exist in the initrd.
+        # Make sure the initrd root has the directories needed by the
+        # rolling-root/impermanence initrd service and the fstab mounts.
         systemd.contents."/root/.keep".text = "";
 
         # Boot-critical modules: NVMe + LUKS + btrfs + USB keyboard.
@@ -179,9 +180,10 @@ in
       graphics.enable = true;
     };
 
-    # Optional temporary key for the disko-created LUKS device.
+    # Optional temporary key for the disko-created LUKS device. The key is
+    # embedded at /etc/luks.key in the initrd (see above), not at its host path.
     boot.initrd.luks.devices = lib.mkIf (cfg.temporaryLuksKeyFile != null) {
-      "root_vg_pocket-reform".keyFile = cfg.temporaryLuksKeyFile;
+      "root_vg_pocket-reform".keyFile = "/etc/luks.key";
     };
   };
 }
