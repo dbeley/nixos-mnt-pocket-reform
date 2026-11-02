@@ -34,6 +34,7 @@ let
   kernelOut = pkgs.runCommand "linux-7.3-mnt-pocket-out" { } ''
     mkdir -p $out
     cp -rs ${baseKernel.out}/* $out/ 2>/dev/null || true
+    rm -rf $out/dtbs
     install -Dm644 ${mntDtb}/imx8mp-mnt-pocket-reform.dtb \
       $out/dtbs/freescale/imx8mp-mnt-pocket-reform.dtb
   '';
