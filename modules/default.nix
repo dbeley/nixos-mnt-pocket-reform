@@ -49,6 +49,7 @@ let
       features
       moduleBuildDependencies
       ;
+    mntPocketKernelWrapper = true;
   };
 
   kernelPackages = pkgs.linuxPackages_latest // {
