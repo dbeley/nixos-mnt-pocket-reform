@@ -9,7 +9,7 @@ let
   cfg = config.hardware.mnt-pocket-reform;
 in
 {
-  imports = [ nixos-hardware.nixosModules.mnt-reform ];
+  imports = [ (import "${nixos-hardware}/mnt/reform") ];
 
   options.hardware.mnt-pocket-reform = {
     enable = lib.mkEnableOption "MNT Pocket Reform with i.MX8MP hardware support";
