@@ -111,7 +111,7 @@ with lib.kernel;
   "BT_DEBUGFS" = no;
   "BT_HCIUART_MRVL" = yes;
   "BT_INTEL_PCIE" = module;
-  "CFG80211" = yes;
+  "CFG80211" = module;
   "RFKILL" = yes;
   "NET_9P" = yes;
   "NET_9P_VIRTIO" = yes;
