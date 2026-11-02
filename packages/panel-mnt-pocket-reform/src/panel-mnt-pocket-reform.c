@@ -482,7 +482,7 @@ static int jdi_panel_init(struct jdi_panel *jdi)
 
 	if (!jdi->panel_version) {
 		mipi_dsi_dcs_read(dsi, 12, &readval, sizeof(readval));
-		dev_err(dev, "[mnt pocket reform display] read register 12a: 0x%x\n", (int)readval);
+		dev_dbg(dev, "[mnt pocket reform display] read register 12a: 0x%x\n", (int)readval);
 
 		if (readval == 0x77 || readval == 0x70) {
 			jdi->panel_version = 1;

@@ -982,3 +982,12 @@
 	vph-supply = <&reg_pcie0>;
 	status = "okay";
 };
+
+
+/* Job ring 1 is owned by the system controller/OP-TEE; the kernel's
+   caam_jr probe fails with -EIO. Ring 2 remains available for crypto. */
+&crypto {
+	jr@2000 {
+		status = "disabled";
+	};
+};
