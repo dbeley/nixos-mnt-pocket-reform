@@ -56,8 +56,6 @@ in
       ];
 
       initrd = {
-        systemd.enable = true;
-
         # Loaded early so the LUKS prompt is visible on the internal display.
         kernelModules = [
           "reset_imx7"
