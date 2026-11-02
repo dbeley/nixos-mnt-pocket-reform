@@ -134,6 +134,14 @@ in
           "ext4"
           "mmc_block"
           "usbhid"
+          # Force the internal panel/backlight to come up before
+          # systemd-cryptsetup asks for the LUKS passphrase.
+          "panel-mnt-pocket-reform"
+          "imx-lcdif"
+          "samsung_dsim"
+          "pwm_imx27"
+          "pwm_bl"
+          "backlight"
         ];
 
         # Display modules are loaded by udev in stage 2; the temporary LUKS
