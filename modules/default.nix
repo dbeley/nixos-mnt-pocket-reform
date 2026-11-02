@@ -119,18 +119,30 @@ in
           # Make sure the initrd root has the directories needed by the
           # rolling-root/impermanence initrd service and the fstab mounts.
           "/root/.keep".text = "";
-
-          # The internal keyboard is on tty1, but systemd-ask-password's
-          # default --console may use the serial console. Force the internal
-          # VT so the LUKS passphrase can actually be typed.
-          "/etc/systemd/system/systemd-ask-password-console.service.d/override.conf".text = ''
-            [Service]
-            ExecStart=
-            ExecStart=${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --watch --console=/dev/tty1
-          '';
         } // lib.optionalAttrs (cfg.temporaryLuksKeyFile != null) {
           "/etc/luks.key".source = /. + cfg.temporaryLuksKeyFile;
         };
+
+        # The internal keyboard is on tty1, but systemd-ask-password's
+        # default --console may use the serial console. Override the unit so
+        # the LUKS passphrase is read from the internal VT.
+        systemd.units."systemd-ask-password-console.service".text = ''
+          [Unit]
+          Description=Dispatch Password Requests to Console
+          Documentation=man:systemd-ask-password-console.service(8)
+          ConditionPathExists=!/run/plymouth/pid
+          DefaultDependencies=no
+          After=plymouth-start.service systemd-vconsole-setup.service
+          Conflicts=emergency.service
+          Before=emergency.service
+          Conflicts=shutdown.target initrd-switch-root.target
+          Before=shutdown.target initrd-switch-root.target
+
+          [Service]
+          ExecStart=${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --watch --console=/dev/tty1
+          Type=notify
+          SystemCallArchitectures=native
+        '';
 
         # Boot-critical modules: NVMe + LUKS + btrfs + USB keyboard.
         kernelModules = [
