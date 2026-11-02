@@ -171,13 +171,12 @@ in
 
       # The internal keyboard is on tty1, but systemd-ask-password's
       # default --console may use the serial console. Force the internal VT
-      # so the LUKS passphrase can actually be typed.
-      initrd.systemd.services.systemd-ask-password-console = {
-        serviceConfig.ExecStart = lib.mkForce [
-          ""
-          "${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --watch --console=/dev/tty1"
-        ];
-      };
+      # via a drop-in so the LUKS passphrase can actually be typed.
+      initrd.systemd.contents."/etc/systemd/system/systemd-ask-password-console.service.d/override.conf".text = ''
+        [Service]
+        ExecStart=
+        ExecStart=${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --watch --console=/dev/tty1
+      '';
 
       loader = {
         grub.enable = false;
