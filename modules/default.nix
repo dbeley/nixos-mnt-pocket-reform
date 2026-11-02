@@ -30,19 +30,13 @@ in
       # nixos-hardware's mnt-reform module provides the MNT kernel as mkDefault.
       # Force it so that a global `boot.kernelPackages = pkgs.linuxPackages_latest`
       # does not win.
-      kernelPackages = lib.mkForce (
-        pkgs.callPackage "${nixos-hardware}/mnt/reform/kernel.nix" {
-          # Trim the arm64 defconfig to the modules actually needed by the
-          # Pocket Reform. The full MNT config builds ~7500 modules, which
-          # takes many hours on the 4-core i.MX8MP. This config is derived
-          # from the running Debian kernel with `localmodconfig`, plus the
-          # storage/crypto/display options that are not loaded on Debian
-          # (btrfs, dm-crypt, etc.).
-          argsOverride = {
-            extraConfig = builtins.readFile ../configs/pocket-reform-trimmed.config;
-          };
-        }
-      );
+      # Vendored copy of nixos-hardware's mnt/reform kernel, modified to pass
+      # the trimmed config through buildLinux's `extraConfig`. The full MNT
+      # config builds ~7500 modules, which takes many hours on the 4-core
+      # i.MX8MP; the trimmed config is derived from the running Debian kernel
+      # with `localmodconfig`, plus the storage/crypto/display options that
+      # are not loaded on Debian (btrfs, dm-crypt, etc.).
+      kernelPackages = lib.mkForce (pkgs.callPackage ../kernel/kernel.nix { });
 
       extraModulePackages = [
         (pkgs.callPackage ../packages/qcacld2.nix {
