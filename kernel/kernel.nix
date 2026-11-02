@@ -138,12 +138,10 @@ let
           REGULATOR_FIXED_VOLTAGE = yes;
           GPIO_ROCKCHIP = yes;
           PL330_DMA = yes;
-        };
+        } // (import ../configs/pocket-reform-options.nix { inherit lib; });
       }
       // (args.argsOverride or { })
     );
 
 in
-lib.recurseIntoAttrs (linuxPackagesFor (callPackage linuxPkg {
-  extraConfig = builtins.readFile ../configs/pocket-reform-trimmed.extra;
-}))
+lib.recurseIntoAttrs (linuxPackagesFor (callPackage linuxPkg { }))
