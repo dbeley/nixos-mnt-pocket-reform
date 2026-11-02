@@ -27,6 +27,15 @@
           kernel = pkgs.linuxPackages_latest.kernel;
         };
         qcacld2-firmware = pkgs.callPackage ./packages/qcacld2-firmware.nix { };
+        panel-mnt-pocket-reform = pkgs.callPackage ./packages/panel-mnt-pocket-reform.nix {
+          kernel = pkgs.linuxPackages_latest.kernel;
+        };
+        mnt-pocket-dtb = pkgs.callPackage ./packages/mnt-pocket-dtb.nix {
+          kernel = pkgs.linuxPackages_latest.kernel;
+        };
+        lpc = pkgs.callPackage ./packages/lpc.nix {
+          kernel = pkgs.linuxPackages_latest.kernel;
+        };
       });
     };
 }

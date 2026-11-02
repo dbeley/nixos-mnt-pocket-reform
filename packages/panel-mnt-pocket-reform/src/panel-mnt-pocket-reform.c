@@ -740,9 +740,6 @@ static int jdi_panel_add(struct jdi_panel *jdi)
 		dev_err_probe(dev, PTR_ERR(jdi->dcdc_en_gpio),
 			      "cannot get dcdc-en-gpio %d\n", ret);
 
-	drm_panel_init(&jdi->base, &jdi->dsi->dev, &jdi_panel_funcs,
-		       DRM_MODE_CONNECTOR_DSI);
-
 	drm_panel_add(&jdi->base);
 
 	return 0;
@@ -774,9 +771,11 @@ static int jdi_panel_probe(struct mipi_dsi_device *dsi)
 		dev_warn(&dsi->dev, "DSI eot/hfp/hbp/hsa disabled via device tree\n");
 	}
 
-	jdi = devm_kzalloc(&dsi->dev, sizeof(*jdi), GFP_KERNEL);
-	if (!jdi)
-		return -ENOMEM;
+	jdi = devm_drm_panel_alloc(&dsi->dev, struct jdi_panel, base,
+				   &jdi_panel_funcs,
+				   DRM_MODE_CONNECTOR_DSI);
+	if (IS_ERR(jdi))
+		return PTR_ERR(jdi);
 
 	mipi_dsi_set_drvdata(dsi, jdi);
 
