@@ -52,6 +52,7 @@ let
       meta
       features
       moduleBuildDependencies
+      buildDTBs
       ;
     mntPocketKernelWrapper = true;
     # NixOS calls kernel.override() to inject randstructSeed. The kernel is
