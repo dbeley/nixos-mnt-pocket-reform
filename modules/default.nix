@@ -116,13 +116,13 @@ in
         # the initrd image itself. Referencing a host path is impure, so
         # evaluation/installation of the temporary-key variant requires
         # `--impure`. This option is null (and not evaluated) for normal builds.
-        systemd.contents = lib.mkIf (cfg.temporaryLuksKeyFile != null) {
+        systemd.contents = {
+          # Make sure the initrd root has the directories needed by the
+          # rolling-root/impermanence initrd service and the fstab mounts.
+          "/root/.keep".text = "";
+        } // lib.optionalAttrs (cfg.temporaryLuksKeyFile != null) {
           "/etc/luks.key".source = /. + cfg.temporaryLuksKeyFile;
         };
-
-        # Make sure the initrd root has the directories needed by the
-        # rolling-root/impermanence initrd service and the fstab mounts.
-        systemd.contents."/root/.keep".text = "";
 
         # Boot-critical modules: NVMe + LUKS + btrfs + USB keyboard.
         kernelModules = [
