@@ -173,6 +173,45 @@ in
       };
     };
 
+    # The MNT U-Boot defaults (fdt_addr_r=0x43000000 and
+    # ramdisk_addr_r=0x43800000) overlap the ~70 MB NixOS kernel loaded at
+    # kernel_addr_r=0x40480000. Its extlinux loader corrupts the kernel/initrd
+    # and U-Boot falls back to the eMMC. Install a U-Boot script that loads
+    # everything at safe addresses; regenerate it on every install/rebuild so
+    # `nixos-rebuild boot/switch` and `nixos-install` always point at the
+    # current generation.
+    system.build.installBootLoader = lib.mkForce (pkgs.writeScript "install-pocket-bootloader" ''
+      #!${pkgs.runtimeShell}
+      set -euo pipefail
+      export PATH=${lib.makeBinPath [ pkgs.coreutils pkgs.gnused pkgs.ubootTools ]}
+      target="$1"
+
+      # Copy kernel/initrd/DTB to /boot/nixos and write extlinux.conf.
+      ${config.boot.loader.generic-extlinux-compatible.populateCmd} -d /boot -c "$target"
+
+      kernel=$(readlink -f "$target/kernel")
+      initrd=$(readlink -f "$target/initrd")
+      dtbs=$(readlink -f "$target/dtbs")
+      clean_name() { printf '%s' "$1" | sed 's|^/nix/store/||; s|/|-|g'; }
+
+      cat > /boot/boot.cmd <<EOF
+      setenv bootargs "init=$target/init $(cat "$target/kernel-params")"
+      setenv fdt_addr_r 0x50000000
+      setenv ramdisk_addr_r 0x58000000
+      load mmc 0:1 0x40480000 /nixos/$(clean_name "$kernel")
+      load mmc 0:1 0x50000000 /nixos/$(clean_name "$dtbs")/${config.hardware.deviceTree.name}
+      load mmc 0:1 0x58000000 /nixos/$(clean_name "$initrd")
+      booti 0x40480000 0x58000000:\''${filesize} 0x50000000
+      EOF
+
+      ${pkgs.ubootTools}/bin/mkimage -A arm64 -O linux -T script -C none \
+        -d /boot/boot.cmd /boot/boot.scr
+      rm -f /boot/boot.cmd
+      # The extlinux path is unusable with this U-Boot; boot.scr is the entry
+      # point. Keeping the directory would only add a failed attempt per boot.
+      rm -rf /boot/extlinux
+    '');
+
     hardware = {
       deviceTree.name = "freescale/imx8mp-mnt-pocket-reform.dtb";
       firmware = [ (pkgs.callPackage ../packages/qcacld2-firmware.nix { }) ];
