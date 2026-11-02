@@ -193,10 +193,7 @@ in
 
       # Plymouth reads the keyboard via evdev directly (not through the VT),
       # which works with the internal USB keyboard in the initrd.
-      plymouth = {
-        enable = true;
-        theme = "spinner";
-      };
+      plymouth.enable = true;
 
       loader = {
         grub.enable = false;
