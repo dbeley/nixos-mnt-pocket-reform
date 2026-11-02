@@ -20,6 +20,15 @@ stdenv.mkDerivation {
   ];
   nativeBuildInputs = kernel.moduleBuildDependencies;
 
+  postPatch = ''
+    # Linux 7.3 changed the cfg80211 remain_on_channel/mgmt_tx cookie
+    # arguments from u64* to u64. These ops are only needed for P2P/AP; the
+    # driver is used in station mode, so leave them out instead of porting
+    # the callbacks.
+    sed -i '/\.remain_on_channel =/d; /\.mgmt_tx =/d' \
+      CORE/HDD/src/wlan_hdd_cfg80211.c
+  '';
+
   makeFlags = [
     "MODNAME=qcacld2"
     "CONFIG_CLD_HL_SDIO_CORE=y"

@@ -26,7 +26,7 @@ let
     kernel = baseKernel;
   };
 
-  lpc = pkgs.callPackage "${nixos-hardware}/mnt/reform/lpc.nix" {
+  lpc = pkgs.callPackage ../packages/lpc.nix {
     kernel = baseKernel;
   };
 
