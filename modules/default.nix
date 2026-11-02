@@ -119,6 +119,15 @@ in
           # Make sure the initrd root has the directories needed by the
           # rolling-root/impermanence initrd service and the fstab mounts.
           "/root/.keep".text = "";
+
+          # The internal keyboard is on tty1, but systemd-ask-password's
+          # default --console may use the serial console. Force the internal
+          # VT so the LUKS passphrase can actually be typed.
+          "/etc/systemd/system/systemd-ask-password-console.service.d/override.conf".text = ''
+            [Service]
+            ExecStart=
+            ExecStart=${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --watch --console=/dev/tty1
+          '';
         } // lib.optionalAttrs (cfg.temporaryLuksKeyFile != null) {
           "/etc/luks.key".source = /. + cfg.temporaryLuksKeyFile;
         };
@@ -168,15 +177,6 @@ in
           "sd_mod"
         ];
       };
-
-      # The internal keyboard is on tty1, but systemd-ask-password's
-      # default --console may use the serial console. Force the internal VT
-      # via a drop-in so the LUKS passphrase can actually be typed.
-      initrd.systemd.contents."/etc/systemd/system/systemd-ask-password-console.service.d/override.conf".text = ''
-        [Service]
-        ExecStart=
-        ExecStart=${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --watch --console=/dev/tty1
-      '';
 
       loader = {
         grub.enable = false;
