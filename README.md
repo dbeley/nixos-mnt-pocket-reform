@@ -4,11 +4,16 @@ NixOS hardware support for the **MNT Pocket Reform with the i.MX8MP module**.
 
 This flake provides a NixOS module that adds:
 
-- the MNT-patched Linux kernel (via `nixos-hardware`'s `mnt-reform` module),
-- the `reform2_lpc` system-controller driver (battery, backlight, GPIO),
-- the `qcacld2` out-of-tree Wi-Fi driver and firmware for the QCA9377 SDIO module,
-- the correct device tree (`freescale/imx8mp-mnt-pocket-reform.dtb`),
-- kernel parameters and initrd modules for the internal display, NVMe, SD and USB keyboard,
+- the nixpkgs Linux 7.3.x kernel (already built in the aarch64 binary cache),
+  with a small wrapper that injects the MNT device tree into the kernel's
+  `dtbs` output without rebuilding the kernel;
+- the MNT Pocket Reform JDI `LT070ME05000` panel driver, ported to the Linux
+  7.3 DRM panel API;
+- the `reform2_lpc` system-controller driver (battery, backlight, GPIO);
+- the `qcacld2` out-of-tree Wi-Fi driver and firmware for the QCA9377 SDIO
+  module, patched for Linux 7.3;
+- kernel parameters and initrd modules for the internal display, NVMe, SD and
+  USB keyboard;
 - a generic-extlinux-compatible boot configuration.
 
 ## Usage
@@ -53,21 +58,33 @@ For the first boot (when the display may not work yet), the module can embed a
 temporary key file in the initrd:
 
 ```nix
-hardware.mnt-pocket-reform.temporaryLuksKeyFile = /path/to/luks.key;
+hardware.mnt-pocket-reform.temporaryLuksKeyFile = "/path/to/luks.key";
 ```
 
 Remove this option and rebuild once the system has been validated. The key
 file must also be added to the LUKS device with `cryptsetup luksAddKey`.
 
-## Kernel choice
+## Kernel and modules
 
-The module currently uses the kernel from `nixos-hardware` (`mnt-reform`,
-Linux 6.19.x at the time of writing). A future version may switch to the MNT
-Linux 7.2.x tree with the in-tree `mnt-sc` driver.
+The module uses `pkgs.linuxPackages_latest` (Linux 7.3.x at the time of
+writing) instead of the MNT 6.19.6 kernel tree. The MNT kernel config builds
+around 7,500 modules and takes many hours on the 4-core i.MX8MP; the nixpkgs
+kernel is already in the binary cache.
+
+The missing MNT pieces are provided out-of-tree:
+
+- `panel-mnt-pocket-reform` (ported to `devm_drm_panel_alloc`),
+- `reform2_lpc` (ported to the 7.3 `power_supply_config.fwnode` API),
+- `qcacld2` (Linux 7.3 `cfg80211` callback changes; P2P ops disabled).
+
+All three modules are signed with `kmodigest`, as required by the NixOS 26.11
+kernel-modules certificate aggregation.
 
 ## Notes
 
 - Do not write to `/dev/mmcblk2boot0` (the U-Boot boot partition) unless you
   have a backup and a recovery method.
-- The MNT kernel and the qcacld2/LPC modules are not in a binary cache, so the
-  first build takes a while.
+- The nixpkgs kernel is cached, but `qcacld2`, the panel driver and the LPC
+  driver are not; the first build takes roughly 15–30 minutes on the Pocket.
+- The kernel-out wrapper only exposes the MNT DTB in `dtbs`; the extlinux
+  builder only needs that DTB for this machine.
