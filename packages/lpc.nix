@@ -3,6 +3,7 @@
   lib,
   fetchgit,
   kernel,
+  kmodigest,
   version ? "ac415f378b187314c77b328295507d13b49bfdd5",
   hash ? "sha256-4RhRGR7xHdNfLBFOM4GwjCVvar+a///OGN89MRNS0mI=",
 }:
@@ -39,6 +40,12 @@ stdenv.mkDerivation {
   installPhase = ''
     mkdir -p $out/lib/modules/${kernel.modDirVersion}/extra
     cp *.ko $out/lib/modules/${kernel.modDirVersion}/extra/
+  '';
+
+  postInstall = ''
+    for module in $out/lib/modules/${kernel.modDirVersion}/extra/*.ko; do
+      ${lib.getExe kmodigest} "$module"
+    done
   '';
 
   meta = with lib; {

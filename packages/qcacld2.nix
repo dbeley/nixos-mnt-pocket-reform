@@ -3,6 +3,7 @@
   lib,
   fetchgit,
   kernel,
+  kmodigest,
 }:
 stdenv.mkDerivation {
   pname = "qcacld2";
@@ -43,6 +44,12 @@ stdenv.mkDerivation {
     mkdir -p $out/lib/modules/${kernel.modDirVersion}/extra
     cp *.ko $out/lib/modules/${kernel.modDirVersion}/extra/
     runHook postInstall
+  '';
+
+  postInstall = ''
+    for module in $out/lib/modules/${kernel.modDirVersion}/extra/*.ko; do
+      ${lib.getExe kmodigest} "$module"
+    done
   '';
 
   meta = with lib; {
