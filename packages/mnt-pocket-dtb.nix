@@ -15,6 +15,7 @@ stdenv.mkDerivation {
     runHook preBuild
     KSRC=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build
     cpp -nostdinc \
+      -I$PWD/include \
       -I$KSRC/include \
       -I$KSRC/arch/arm64/boot/dts \
       -I$KSRC/arch/arm64/boot/dts/freescale \
