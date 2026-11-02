@@ -31,7 +31,17 @@ in
       # Force it so that a global `boot.kernelPackages = pkgs.linuxPackages_latest`
       # does not win.
       kernelPackages = lib.mkForce (
-        pkgs.callPackage "${nixos-hardware}/mnt/reform/kernel.nix" { }
+        pkgs.callPackage "${nixos-hardware}/mnt/reform/kernel.nix" {
+          # Trim the arm64 defconfig to the modules actually needed by the
+          # Pocket Reform. The full MNT config builds ~7500 modules, which
+          # takes many hours on the 4-core i.MX8MP. This config is derived
+          # from the running Debian kernel with `localmodconfig`, plus the
+          # storage/crypto/display options that are not loaded on Debian
+          # (btrfs, dm-crypt, etc.).
+          argsOverride = {
+            extraConfig = builtins.readFile ../configs/pocket-reform-trimmed.config;
+          };
+        }
       );
 
       extraModulePackages = [
