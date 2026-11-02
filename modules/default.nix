@@ -15,7 +15,7 @@ in
     enable = lib.mkEnableOption "MNT Pocket Reform with i.MX8MP hardware support";
 
     temporaryLuksKeyFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
+      type = lib.types.nullOr lib.types.str;
       default = null;
       description = ''
         Optional temporary LUKS key file to embed in the initrd. This is
