@@ -42,23 +42,24 @@ let
       $out/dtbs/freescale/imx8mp-mnt-pocket-reform.dtb
   '';
 
-  kernelWithDtb = kernelOut // {
-    inherit (baseKernel)
-      dev
-      modules
-      modDirVersion
-      version
-      name
-      meta
-      features
-      moduleBuildDependencies
-      buildDTBs
-      ;
-    mntPocketKernelWrapper = true;
-    # NixOS calls kernel.override() to inject randstructSeed. The kernel is
-    # prebuilt and cached; keep the wrapper instead of rebuilding it.
-    override = _args: kernelWithDtb;
-  };
+  kernelWithDtb = kernelOut
+    // (builtins.removeAttrs baseKernel [
+      "out"
+      "outPath"
+      "drvPath"
+      "type"
+      "outputs"
+      "outputName"
+      "override"
+      "overrideAttrs"
+      "overrideDerivation"
+    ])
+    // {
+      mntPocketKernelWrapper = true;
+      # NixOS calls kernel.override() to inject randstructSeed. The kernel is
+      # prebuilt and cached; keep the wrapper instead of rebuilding it.
+      override = _args: kernelWithDtb;
+    };
 
   kernelPackages = pkgs.linuxPackagesFor kernelWithDtb;
 in
