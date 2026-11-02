@@ -1,9 +1,18 @@
 {
   stdenv,
   lib,
-  kernel,
+  fetchzip,
   dtc,
 }:
+let
+  # The MNT DTS is written against the 6.19.6 i.MX8MP device trees. The
+  # nixpkgs kernel dev output only ships headers, not the full dtsi files,
+  # so use the matching upstream kernel source for the includes.
+  mntSource = fetchzip {
+    url = "mirror://kernel/linux/kernel/v6.x/linux-6.19.6.tar.xz";
+    hash = "sha256-cdQbdColRBCzQPWojIVpLs6Rmuk91bBPtqf8DsmkSxU=";
+  };
+in
 stdenv.mkDerivation {
   pname = "mnt-pocket-dtb";
   version = "6.19.6";
@@ -13,7 +22,7 @@ stdenv.mkDerivation {
 
   buildPhase = ''
     runHook preBuild
-    KSRC=${kernel.dev}/lib/modules/${kernel.modDirVersion}/source
+    KSRC=${mntSource}
     cpp -nostdinc \
       -I$PWD/include \
       -I$KSRC/include \

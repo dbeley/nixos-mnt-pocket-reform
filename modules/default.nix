@@ -14,9 +14,7 @@ let
   # MNT pieces (DTB, panel driver, system controller, Wi-Fi) out-of-tree.
   baseKernel = pkgs.linuxPackages_latest.kernel;
 
-  mntDtb = pkgs.callPackage ../packages/mnt-pocket-dtb.nix {
-    kernel = baseKernel;
-  };
+  mntDtb = pkgs.callPackage ../packages/mnt-pocket-dtb.nix { };
 
   panel = pkgs.callPackage ../packages/panel-mnt-pocket-reform.nix {
     kernel = baseKernel;
