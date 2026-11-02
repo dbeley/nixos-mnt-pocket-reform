@@ -39,8 +39,10 @@ stdenv.mkDerivation {
   '';
 
   installPhase = ''
+    runHook preInstall
     mkdir -p $out/lib/modules/${kernel.modDirVersion}/extra
     cp *.ko $out/lib/modules/${kernel.modDirVersion}/extra/
+    runHook postInstall
   '';
 
   postInstall = ''
