@@ -201,7 +201,6 @@ with lib.kernel;
   "SATA_SIL24" = yes;
   "SATA_RCAR" = yes;
   "PATA_OF_PLATFORM" = yes;
-  "DM_CRYPT" = yes;
   "DM_AUDIT" = yes;
   "NETDEVICES" = yes;
   "TUN" = yes;
