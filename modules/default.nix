@@ -99,7 +99,6 @@ in
 
       kernelParams = [
         "console=tty1"
-        "splash"
         "fbcon=font:TER16x32"
         "cma=256MB"
         "pci=pcie_bus_perf"
@@ -124,27 +123,6 @@ in
           "/etc/luks.key".source = /. + cfg.temporaryLuksKeyFile;
         };
 
-        # The internal keyboard is on tty1, but systemd-ask-password's
-        # default --console may use the serial console. Override the unit so
-        # the LUKS passphrase is read from the internal VT.
-        systemd.units."systemd-ask-password-console.service".text = ''
-          [Unit]
-          Description=Dispatch Password Requests to Console
-          Documentation=man:systemd-ask-password-console.service(8)
-          ConditionPathExists=!/run/plymouth/pid
-          DefaultDependencies=no
-          After=plymouth-start.service systemd-vconsole-setup.service
-          Conflicts=emergency.service
-          Before=emergency.service
-          Conflicts=shutdown.target initrd-switch-root.target
-          Before=shutdown.target initrd-switch-root.target
-
-          [Service]
-          ExecStart=${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --watch --console=/dev/tty1
-          Type=notify
-          SystemCallArchitectures=native
-        '';
-
         # Boot-critical modules: NVMe + LUKS + btrfs + USB keyboard.
         kernelModules = [
           "nvme"
@@ -154,6 +132,8 @@ in
           "btrfs"
           "ext4"
           "mmc_block"
+          "sdhci"
+          "sdhci-esdhc-imx"
           "usbhid"
           # Force the internal panel/backlight to come up before
           # systemd-cryptsetup asks for the LUKS passphrase.
@@ -190,10 +170,6 @@ in
           "sd_mod"
         ];
       };
-
-      # Plymouth reads the keyboard via evdev directly (not through the VT),
-      # which works with the internal USB keyboard in the initrd.
-      plymouth.enable = true;
 
       loader = {
         grub.enable = false;
