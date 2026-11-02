@@ -50,6 +50,9 @@ let
       moduleBuildDependencies
       ;
     mntPocketKernelWrapper = true;
+    # NixOS calls kernel.override() to inject randstructSeed. The kernel is
+    # prebuilt and cached; keep the wrapper instead of rebuilding it.
+    override = _args: kernelWithDtb;
   };
 
   kernelPackages = pkgs.linuxPackagesFor kernelWithDtb;
