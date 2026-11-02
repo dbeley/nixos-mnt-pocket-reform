@@ -26,6 +26,12 @@ stdenv.mkDerivation {
   ];
   nativeBuildInputs = kernel.moduleBuildDependencies;
 
+  postPatch = ''
+    # Linux 7.3 replaced power_supply_config.of_node with .fwnode.
+    sed -i 's/psy_cfg\.of_node = spi->dev\.of_node;/psy_cfg.fwnode = of_fwnode_handle(spi->dev.of_node);/' \
+      reform2_lpc.c
+  '';
+
   buildPhase = ''
     make -C "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build" M="$(pwd -P)" modules
   '';
