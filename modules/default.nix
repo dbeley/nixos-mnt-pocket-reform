@@ -33,8 +33,11 @@ let
   # $kernel/dtbs) without rebuilding the kernel itself.
   kernelOut = pkgs.runCommand "linux-7.3-mnt-pocket-out" { } ''
     mkdir -p $out
-    cp -rs ${baseKernel.out}/* $out/ 2>/dev/null || true
-    rm -rf $out/dtbs
+    for f in ${baseKernel.out}/*; do
+      [ "$(basename "$f")" = dtbs ] && continue
+      cp -rs "$f" $out/
+    done
+    mkdir -p $out/dtbs/freescale
     install -Dm644 ${mntDtb}/imx8mp-mnt-pocket-reform.dtb \
       $out/dtbs/freescale/imx8mp-mnt-pocket-reform.dtb
   '';
