@@ -13,7 +13,7 @@ stdenv.mkDerivation {
 
   buildPhase = ''
     runHook preBuild
-    KSRC=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build
+    KSRC=${kernel.dev}/lib/modules/${kernel.modDirVersion}/source
     cpp -nostdinc \
       -I$PWD/include \
       -I$KSRC/include \
