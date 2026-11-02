@@ -139,6 +139,10 @@ in
         # Display modules are loaded by udev in stage 2; the temporary LUKS
         # key means the first boot does not depend on them.
         availableKernelModules = [
+          # Needed early so the internal panel and backlight are up when
+          # systemd-cryptsetup asks for the LUKS passphrase in the initrd.
+          "panel-mnt-pocket-reform"
+          "reform2_lpc"
           "imx-lcdif"
           "samsung_dsim"
           "pwm_imx27"
