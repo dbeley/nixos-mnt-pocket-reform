@@ -98,7 +98,6 @@ in
       blacklistedKernelModules = [ "ath10k_sdio" ];
 
       kernelParams = [
-        "console=ttymxc1,115200"
         "console=tty1"
         "fbcon=font:TER16x32"
         "cma=256MB"
@@ -167,6 +166,16 @@ in
           "mxsfb"
           "usb_storage"
           "sd_mod"
+        ];
+      };
+
+      # The internal keyboard is on tty1, but systemd-ask-password's
+      # default --console may use the serial console. Force the internal VT
+      # so the LUKS passphrase can actually be typed.
+      initrd.systemd.services.systemd-ask-password-console = {
+        serviceConfig.ExecStart = lib.mkForce [
+          ""
+          "${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --watch --console=/dev/tty1"
         ];
       };
 
