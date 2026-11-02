@@ -112,8 +112,11 @@ in
       initrd = {
         # The crypttab references this key path, so the key file must be
         # copied into the initrd; otherwise the LUKS device is never opened.
+        # `null` means "same path inside and outside the initrd". Using
+        # `/. + path` would make evaluation impure; `null` lets the
+        # bootloader installer read the host file when it appends secrets.
         secrets = lib.mkIf (cfg.temporaryLuksKeyFile != null) {
-          "${cfg.temporaryLuksKeyFile}" = /. + cfg.temporaryLuksKeyFile;
+          "${cfg.temporaryLuksKeyFile}" = null;
         };
 
         # nixos-init/initrd-init mounts the fstab on /root; the mount point
