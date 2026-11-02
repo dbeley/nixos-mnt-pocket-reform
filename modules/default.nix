@@ -29,15 +29,18 @@ let
     inherit qcacld2;
   };
 
-  # Add the MNT DTB to the nixpkgs kernel's dtbs output without rebuilding
-  # the kernel itself.
+  # Add the MNT DTB to the kernel's out output (the extlinux builder reads
+  # $kernel/dtbs) without rebuilding the kernel itself.
+  kernelOut = pkgs.runCommand "linux-7.3-mnt-pocket-out" { } ''
+    mkdir -p $out
+    cp -rs ${baseKernel.out}/* $out/ 2>/dev/null || true
+    install -Dm644 ${mntDtb}/imx8mp-mnt-pocket-reform.dtb \
+      $out/dtbs/freescale/imx8mp-mnt-pocket-reform.dtb
+  '';
+
   kernelWithDtb = baseKernel // {
-    dtbs = pkgs.runCommand "linux-dtbs-mnt-pocket" { } ''
-      mkdir -p $out
-      cp -rs ${baseKernel.dtbs}/* $out/ 2>/dev/null || true
-      install -Dm644 ${mntDtb}/imx8mp-mnt-pocket-reform.dtb \
-        $out/freescale/imx8mp-mnt-pocket-reform.dtb
-    '';
+    out = kernelOut;
+    outPath = kernelOut;
   };
 
   kernelPackages = pkgs.linuxPackages_latest // {
