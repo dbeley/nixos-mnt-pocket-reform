@@ -145,5 +145,5 @@ let
 
 in
 lib.recurseIntoAttrs (linuxPackagesFor (callPackage linuxPkg {
-  extraConfig = builtins.readFile ../configs/pocket-reform-trimmed.config;
+  extraConfig = builtins.readFile ../configs/pocket-reform-trimmed.extra;
 }))
