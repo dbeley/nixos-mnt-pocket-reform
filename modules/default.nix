@@ -99,6 +99,7 @@ in
 
       kernelParams = [
         "console=tty1"
+        "splash"
         "fbcon=font:TER16x32"
         "cma=256MB"
         "pci=pcie_bus_perf"
@@ -188,6 +189,13 @@ in
           "usb_storage"
           "sd_mod"
         ];
+      };
+
+      # Plymouth reads the keyboard via evdev directly (not through the VT),
+      # which works with the internal USB keyboard in the initrd.
+      plymouth = {
+        enable = true;
+        theme = "spinner";
       };
 
       loader = {
