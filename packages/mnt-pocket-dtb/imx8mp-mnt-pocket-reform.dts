@@ -200,7 +200,7 @@
 	pinctrl_pmic: pmicirq {
 		fsl,pins = <
 #define GPIRQ_PMIC	<&gpio3 0 IRQ_TYPE_LEVEL_LOW>
-			MX8MP_IOMUXC_NAND_ALE__GPIO3_IO00	0x41
+			MX8MP_IOMUXC_NAND_ALE__GPIO3_IO00	0x61
 		>;
 	};
 
@@ -644,10 +644,16 @@
 	pmic: pca9450@25 {
 		reg = <0x25>;
 		compatible = "nxp,pca9450c";
-		/* PMIC PCA9450 PMIC_nINT GPIO1_IO3 */
+		/*
+		 * PMIC_nINT is wired to GPIO3_IO00 (the NAND_ALE pad), see the
+		 * pinctrl_pmic group. The reference DTS declares it on GPIO1_IO03,
+		 * which is muxed nowhere on this board: a level-low IRQ on that
+		 * floating line fires forever (the driver only reads INT1 and never
+		 * clears anything), pinning CPU0 at ~2.3k IRQs/s plus ~11k I2C
+		 * controller IRQs/s.
+		 */
 		pinctrl-0 = <&pinctrl_pmic>;
-		interrupt-parent = <&gpio1>;
-		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+		interrupts-extended = GPIRQ_PMIC;
 
 		regulators {
 			buck1: BUCK1 {
