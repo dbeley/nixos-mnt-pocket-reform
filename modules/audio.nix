@@ -34,6 +34,8 @@ in
       path = [
         pkgs.alsa-utils
         pkgs.coreutils
+        # awk lives in gawk, not coreutils.
+        pkgs.gawk
       ];
       serviceConfig = {
         Type = "oneshot";
