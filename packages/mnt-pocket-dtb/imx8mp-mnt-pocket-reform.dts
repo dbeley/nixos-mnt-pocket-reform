@@ -652,6 +652,7 @@
 		 * clears anything), pinning CPU0 at ~2.3k IRQs/s plus ~11k I2C
 		 * controller IRQs/s.
 		 */
+		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_pmic>;
 		interrupts-extended = GPIRQ_PMIC;
 
