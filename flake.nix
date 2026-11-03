@@ -31,7 +31,7 @@
           kernel = pkgs.linuxPackages_latest.kernel;
         };
         mnt-pocket-dtb = pkgs.callPackage ./packages/mnt-pocket-dtb.nix { };
-        lpc = pkgs.callPackage ./packages/lpc.nix {
+        mnt-sc = pkgs.callPackage ./packages/mnt-sc.nix {
           kernel = pkgs.linuxPackages_latest.kernel;
           inherit qcacld2;
         };

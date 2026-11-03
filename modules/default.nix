@@ -24,7 +24,12 @@ let
     kernel = baseKernel;
   };
 
-  lpc = pkgs.callPackage ../packages/lpc.nix {
+  # The Pocket Reform's system controller (RP2040) speaks the s-expression
+  # protocol implemented by `mnt_sc`, not the binary "LPC" protocol of the
+  # original Reform. `reform2_lpc` binds to the same SPI device and then
+  # reads zeroes for every command, which surfaces as a battery stuck at
+  # 6% (the driver clamps 0) and a bogus charging state.
+  mntSc = pkgs.callPackage ../packages/mnt-sc.nix {
     kernel = baseKernel;
     inherit qcacld2;
   };
@@ -42,7 +47,8 @@ let
       $out/dtbs/freescale/imx8mp-mnt-pocket-reform.dtb
   '';
 
-  kernelWithDtb = kernelOut
+  kernelWithDtb =
+    kernelOut
     // (builtins.removeAttrs baseKernel [
       "out"
       "outPath"
@@ -76,13 +82,13 @@ in
 
       extraModulePackages = [
         panel
-        lpc
+        mntSc
         qcacld2
       ];
 
       kernelModules = [
         "panel-mnt-pocket-reform"
-        "reform2_lpc"
+        "mnt_sc"
         "qcacld2"
       ];
       blacklistedKernelModules = [ "ath10k_sdio" ];
@@ -133,7 +139,7 @@ in
           # Needed early so the internal panel and backlight are up when
           # systemd-cryptsetup asks for the LUKS passphrase in the initrd.
           "panel-mnt-pocket-reform"
-          "reform2_lpc"
+          "mnt_sc"
           "imx-lcdif"
           "samsung_dsim"
           "pwm_imx27"
@@ -175,37 +181,45 @@ in
     # everything at safe addresses; regenerate it on every install/rebuild so
     # `nixos-rebuild boot/switch` and `nixos-install` always point at the
     # current generation.
-    system.build.installBootLoader = lib.mkForce (pkgs.writeScript "install-pocket-bootloader" ''
-      #!${pkgs.runtimeShell}
-      set -euo pipefail
-      export PATH=${lib.makeBinPath [ pkgs.coreutils pkgs.gnused pkgs.ubootTools ]}
-      target="$1"
+    system.build.installBootLoader = lib.mkForce (
+      pkgs.writeScript "install-pocket-bootloader" ''
+        #!${pkgs.runtimeShell}
+        set -euo pipefail
+        export PATH=${
+          lib.makeBinPath [
+            pkgs.coreutils
+            pkgs.gnused
+            pkgs.ubootTools
+          ]
+        }
+        target="$1"
 
-      # Copy kernel/initrd/DTB to /boot/nixos and write extlinux.conf.
-      ${config.boot.loader.generic-extlinux-compatible.populateCmd} -d /boot -c "$target"
+        # Copy kernel/initrd/DTB to /boot/nixos and write extlinux.conf.
+        ${config.boot.loader.generic-extlinux-compatible.populateCmd} -d /boot -c "$target"
 
-      kernel=$(readlink -f "$target/kernel")
-      initrd=$(readlink -f "$target/initrd")
-      dtbs=$(readlink -f "$target/dtbs")
-      clean_name() { printf '%s' "$1" | sed 's|^/nix/store/||; s|/|-|g'; }
+        kernel=$(readlink -f "$target/kernel")
+        initrd=$(readlink -f "$target/initrd")
+        dtbs=$(readlink -f "$target/dtbs")
+        clean_name() { printf '%s' "$1" | sed 's|^/nix/store/||; s|/|-|g'; }
 
-      cat > /boot/boot.cmd <<EOF
-      setenv bootargs "init=$target/init $(cat "$target/kernel-params")"
-      setenv fdt_addr_r 0x50000000
-      setenv ramdisk_addr_r 0x58000000
-      load mmc 0:1 0x40480000 /nixos/$(clean_name "$kernel")
-      load mmc 0:1 0x50000000 /nixos/$(clean_name "$dtbs")/${config.hardware.deviceTree.name}
-      load mmc 0:1 0x58000000 /nixos/$(clean_name "$initrd")
-      booti 0x40480000 0x58000000:\''${filesize} 0x50000000
-      EOF
+        cat > /boot/boot.cmd <<EOF
+        setenv bootargs "init=$target/init $(cat "$target/kernel-params")"
+        setenv fdt_addr_r 0x50000000
+        setenv ramdisk_addr_r 0x58000000
+        load mmc 0:1 0x40480000 /nixos/$(clean_name "$kernel")
+        load mmc 0:1 0x50000000 /nixos/$(clean_name "$dtbs")/${config.hardware.deviceTree.name}
+        load mmc 0:1 0x58000000 /nixos/$(clean_name "$initrd")
+        booti 0x40480000 0x58000000:\''${filesize} 0x50000000
+        EOF
 
-      ${pkgs.ubootTools}/bin/mkimage -A arm64 -O linux -T script -C none \
-        -d /boot/boot.cmd /boot/boot.scr
-      rm -f /boot/boot.cmd
-      # The extlinux path is unusable with this U-Boot; boot.scr is the entry
-      # point. Keeping the directory would only add a failed attempt per boot.
-      rm -rf /boot/extlinux
-    '');
+        ${pkgs.ubootTools}/bin/mkimage -A arm64 -O linux -T script -C none \
+          -d /boot/boot.cmd /boot/boot.scr
+        rm -f /boot/boot.cmd
+        # The extlinux path is unusable with this U-Boot; boot.scr is the entry
+        # point. Keeping the directory would only add a failed attempt per boot.
+        rm -rf /boot/extlinux
+      ''
+    );
 
     hardware = {
       deviceTree.name = "freescale/imx8mp-mnt-pocket-reform.dtb";

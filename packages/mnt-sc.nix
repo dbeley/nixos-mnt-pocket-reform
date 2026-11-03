@@ -9,18 +9,29 @@
   hash ? "sha256-uEqZhEftOo0zfQxdrnUfMYMOmMEi32+fS85Id00pqSo=",
 }:
 let
+  # Same reform-tools checkout used for the panel driver's sources. The
+  # system controller driver moved to `system-controller/` in 2026.
   reform-tools = fetchgit {
     url = "https://source.mnt.re/reform/reform-tools.git";
     rev = "${version}";
-    hash = hash;
+    inherit hash;
   };
 in
 stdenv.mkDerivation {
-  pname = "reform-lpc";
-  name = "reform-lpc-${version}-${kernel.version}";
-  version = version;
+  pname = "mnt-sc";
+  name = "mnt-sc-${version}-${kernel.version}";
+  inherit version;
 
-  src = "${reform-tools}/lpc";
+  src = "${reform-tools}/system-controller";
+
+  # Upstream forgot to declare `ret` in show_capacity(); the driver does
+  # not build as shipped.
+  postPatch = ''
+        substituteInPlace mnt-sc.c \
+          --replace-fail '	uint16_t cap_acc_mah, cap_min_mah, cap_max_mah;' \
+          '	uint16_t cap_acc_mah, cap_min_mah, cap_max_mah;
+    	int ret = 0;'
+  '';
 
   hardeningDisable = [
     "pic"
@@ -52,9 +63,9 @@ stdenv.mkDerivation {
   '';
 
   meta = with lib; {
-    description = "MNT Reform LPC interface driver";
-    homepage = "https://source.mnt.re/reform/reform-tools.git";
-    license = licenses.gpl3;
+    description = "MNT System Controller driver (s-expression protocol)";
+    homepage = "https://source.mnt.re/reform/reform-tools";
+    license = licenses.gpl2Only;
     platforms = platforms.linux;
   };
 }

@@ -875,8 +875,16 @@
 	cs-gpios = GP_ECSPI2_CS;
 	status = "okay";
 
+	/*
+	 * The Pocket Reform's system controller is an RP2040 speaking the
+	 * s-expression protocol of the `mnt_sc` driver
+	 * (source.mnt.re/reform/pocket-reform, pocket-reform-sysctl-fw).
+	 * It ignores the binary 0xb5 "LPC" command header of the original
+	 * Reform, so declaring `mntre,lpc11u24` here makes the reform2_lpc
+	 * driver bind and return nothing but zeroes.
+	 */
 	spidev@0 {
-		compatible = "mntre,lpc11u24";
+		compatible = "mntre,system-controller";
 		spi-max-frequency = <1000000>;
 		reg = <0>;
 	};
