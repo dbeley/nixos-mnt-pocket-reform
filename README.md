@@ -17,6 +17,22 @@ This flake provides a NixOS module that adds:
   USB keyboard;
 - a generic-extlinux-compatible boot configuration.
 
+## Scope and compatibility
+
+This flake targets the **i.MX8MP processor module on the V1 Pocket Reform
+mainboard**. The panel driver, system controller driver and Wi-Fi driver are
+SoC-independent, but the device tree, kernel wrapper and U-Boot script are
+specific to i.MX8MP.
+
+- **Mainboard 2.0**: boots, but the newer SC-controlled backlight, SC GPIO
+  reset and USB mux handling need the current `mnt-linux` device tree and
+  drivers. Treat V2 mainboard support as experimental.
+- **Charger Module V2 and Keyboard PCB 2.0**: no kernel-visible interface
+  change; they should work as-is (keep the keyboard firmware updated).
+- **Other SoCs** (A311D, RK3588, QCS6490/8550): not supported by this module.
+  They need a different device tree, kernel configuration and bootloader
+  setup; see [`mnt-reform-platforms`](https://sr.ht/~stephano/mnt-reform-platforms).
+
 ## Usage
 
 ```nix
@@ -30,7 +46,6 @@ This flake provides a NixOS module that adds:
         nixos-mnt-pocket-reform.nixosModules.pocket-reform-imx8mp
         {
           hardware.mnt-pocket-reform.enable = true;
-          boot.loader.generic-extlinux-compatible.configurationLimit = 2;
         }
         ./configuration.nix
       ];
@@ -38,6 +53,31 @@ This flake provides a NixOS module that adds:
   };
 }
 ```
+
+`nixosModules.pocket-reform` and `nixosModules.default` are aliases of the
+same module.
+
+## Configuration
+
+All options live under `hardware.mnt-pocket-reform`:
+
+| Option | Default | Purpose |
+|---|---|---|
+| `enable` | `false` | Enable the hardware support |
+| `kernelPackages` | wrapped `pkgs.linuxPackages_latest` | Kernel used by the system; the default injects the MNT DTB |
+| `panel.enable` | `true` | Build and load the panel driver |
+| `systemController.enable` | `true` | Build and load `mnt_sc` |
+| `wifi.enable` | `true` | Build `qcacld2`, install its firmware and blacklist `ath10k_sdio` |
+| `debug` | `false` | Add `loglevel=7` and `no_console_suspend` kernel parameters |
+| `bootloader.enable` | `true` | Install the generated `boot.scr` and `installBootLoader` script |
+| `bootloader.device` | `"mmc 0:1"` | U-Boot device/partition holding `/boot` |
+| `bootloader.kernelAddress` | `"0x40480000"` | Kernel load address |
+| `bootloader.fdtAddress` | `"0x50000000"` | DTB load address |
+| `bootloader.initrdAddress` | `"0x58000000"` | initrd load address |
+| `bootloader.removeExtlinux` | `true` | Remove `/boot/extlinux` after writing `boot.scr` |
+
+Set `hardware.mnt-pocket-reform.bootloader.device = "mmc 1:1"` (or the
+matching device) if `/boot` is on the eMMC instead of the microSD.
 
 ## Boot layout
 
@@ -68,10 +108,12 @@ passphrase in another slot as a recovery method.
 
 ## Kernel and modules
 
-The module uses `pkgs.linuxPackages_latest` (Linux 7.3.x at the time of
-writing) instead of the MNT 6.19.6 kernel tree. The MNT kernel config builds
-around 7,500 modules and takes many hours on the 4-core i.MX8MP; the nixpkgs
-kernel is already in the binary cache.
+The default `hardware.mnt-pocket-reform.kernelPackages` wraps
+`pkgs.linuxPackages_latest` (Linux 7.3.x at the time of writing) instead of the
+MNT 6.19.6 kernel tree. The MNT kernel config builds around 7,500 modules and
+takes many hours on the 4-core i.MX8MP; the nixpkgs kernel is already in the
+binary cache. Override the option only with a kernel that also exposes a
+`dtbs` output.
 
 The missing MNT pieces are provided out-of-tree:
 
@@ -80,8 +122,11 @@ The missing MNT pieces are provided out-of-tree:
   `power_supply_config.fwnode` API),
 - `qcacld2` (Linux 7.3 `cfg80211` callback changes; P2P ops disabled).
 
-All three modules are signed with `kmodigest`, as required by the NixOS 26.11
-kernel-modules certificate aggregation.
+All enabled modules are signed with `kmodigest`, as required by the NixOS 26.11
+kernel-modules certificate aggregation. `mnt_sc` falls back to the `qcacld2`
+certificate when `kmodigest` does not create one; if `wifi.enable = false`,
+that fallback is unavailable and the build fails instead of silently
+installing an unsigned module.
 
 ## System controller
 
@@ -115,8 +160,9 @@ plus a suspend notifier that powers down the auxiliary rails with
 
 - Do not write to `/dev/mmcblk2boot0` (the U-Boot boot partition) unless you
   have a backup and a recovery method.
-- The nixpkgs kernel is cached, but `qcacld2`, the panel driver and the
-  system controller driver are not; the first build takes roughly 15–30
-  minutes on the Pocket.
+- The nixpkgs kernel is cached, but the enabled out-of-tree modules are not;
+  the first build takes roughly 15–30 minutes on the Pocket.
 - The kernel-out wrapper only exposes the MNT DTB in `dtbs`; the extlinux
   builder only needs that DTB for this machine.
+- `nix flake check` builds the DTB and firmware packages; `nix develop` provides
+  `dtc`, `nixfmt` and `ubootTools`.

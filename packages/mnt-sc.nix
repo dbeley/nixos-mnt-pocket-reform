@@ -4,7 +4,7 @@
   fetchgit,
   kernel,
   kmodigest,
-  qcacld2,
+  qcacld2 ? null,
   version ? "3f559de5f4ab26bc66a7fe925b83112fd6ccf9fe",
   hash ? "sha256-uEqZhEftOo0zfQxdrnUfMYMOmMEi32+fS85Id00pqSo=",
 }:
@@ -53,13 +53,25 @@ stdenv.mkDerivation {
   postInstall = ''
     for module in $out/lib/modules/${kernel.modDirVersion}/extra/*.ko; do
       if ! ${lib.getExe kmodigest} "$module"; then
-        echo "kmodigest failed for $module; falling back to the qcacld2 certificate" >&2
+        ${lib.optionalString (qcacld2 != null) ''
+          echo "kmodigest failed for $module; falling back to the qcacld2 certificate" >&2
+        ''}
+        ${lib.optionalString (qcacld2 == null) ''
+          echo "kmodigest failed for $module and qcacld2 is disabled" >&2
+          exit 1
+        ''}
       fi
       if [ ! -e "$module.cer" ]; then
-        # kmodigest did not create a certificate for this module (it is
-        # unsigned); reuse the certificate from the qcacld2 module, which
-        # was signed with the same kernel key.
-        cp ${qcacld2}/lib/modules/${kernel.modDirVersion}/extra/qcacld2.ko.cer "$module.cer"
+        ${lib.optionalString (qcacld2 != null) ''
+          # kmodigest did not create a certificate for this module (it is
+          # unsigned); reuse the certificate from the qcacld2 module, which
+          # was signed with the same kernel key.
+          cp ${qcacld2}/lib/modules/${kernel.modDirVersion}/extra/qcacld2.ko.cer "$module.cer"
+        ''}
+        ${lib.optionalString (qcacld2 == null) ''
+          echo "kmodigest did not create $module.cer and qcacld2 is disabled" >&2
+          exit 1
+        ''}
       fi
     done
   '';

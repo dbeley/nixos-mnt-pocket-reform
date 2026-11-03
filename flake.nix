@@ -17,6 +17,7 @@
     {
       nixosModules = {
         pocket-reform-imx8mp = import ./modules/default.nix;
+        pocket-reform = self.nixosModules.pocket-reform-imx8mp;
         default = self.nixosModules.pocket-reform-imx8mp;
       };
 
@@ -36,5 +37,19 @@
       });
 
       formatter = forAllSystems (pkgs: pkgs.nixfmt);
+
+      checks = forAllSystems (pkgs: {
+        inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) mnt-pocket-dtb qcacld2-firmware;
+      });
+
+      devShells = forAllSystems (pkgs: {
+        default = pkgs.mkShell {
+          packages = with pkgs; [
+            dtc
+            nixfmt
+            ubootTools
+          ];
+        };
+      });
     };
 }

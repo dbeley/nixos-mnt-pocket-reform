@@ -11,27 +11,10 @@ let
   # 6.19.6 kernel config builds ~7500 modules and takes many hours on the
   # 4-core i.MX8MP, so we use the nixpkgs kernel and provide the missing
   # MNT pieces (DTB, panel driver, system controller, Wi-Fi) out-of-tree.
-  baseKernel = pkgs.linuxPackages_latest.kernel;
+  baseKernelPackages = pkgs.linuxPackages_latest;
+  baseKernel = baseKernelPackages.kernel;
 
   mntDtb = pkgs.callPackage ../packages/mnt-pocket-dtb.nix { };
-
-  panel = pkgs.callPackage ../packages/panel-mnt-pocket-reform.nix {
-    kernel = baseKernel;
-  };
-
-  qcacld2 = pkgs.callPackage ../packages/qcacld2.nix {
-    kernel = baseKernel;
-  };
-
-  # The Pocket Reform's system controller (RP2040) speaks the s-expression
-  # protocol implemented by `mnt_sc`, not the binary "LPC" protocol of the
-  # original Reform. `reform2_lpc` binds to the same SPI device and then
-  # reads zeroes for every command, which surfaces as a battery stuck at
-  # 6% (the driver clamps 0) and a bogus charging state.
-  mntSc = pkgs.callPackage ../packages/mnt-sc.nix {
-    kernel = baseKernel;
-    inherit qcacld2;
-  };
 
   # Add the MNT DTB to the kernel's out output (the extlinux builder reads
   # $kernel/dtbs) without rebuilding the kernel itself.
@@ -66,31 +49,142 @@ let
       override = _args: kernelWithDtb;
     };
 
-  kernelPackages = pkgs.linuxPackagesFor kernelWithDtb;
+  defaultKernelPackages = pkgs.linuxPackagesFor kernelWithDtb;
+
+  kernel = cfg.kernelPackages.kernel;
+
+  panel = pkgs.callPackage ../packages/panel-mnt-pocket-reform.nix {
+    inherit kernel;
+  };
+
+  qcacld2 = pkgs.callPackage ../packages/qcacld2.nix {
+    inherit kernel;
+  };
+
+  # The Pocket Reform's system controller (RP2040) speaks the s-expression
+  # protocol implemented by `mnt_sc`, not the binary "LPC" protocol of the
+  # original Reform. `reform2_lpc` binds to the same SPI device and then
+  # reads zeroes for every command, which surfaces as a battery stuck at
+  # 6% (the driver clamps 0) and a bogus charging state.
+  mntSc = pkgs.callPackage ../packages/mnt-sc.nix {
+    inherit kernel;
+    # `mnt_sc` reuses the qcacld2 certificate when kmodigest does not
+    # produce one. Pass null when the Wi-Fi driver is disabled.
+    qcacld2 = if cfg.wifi.enable then qcacld2 else null;
+  };
+
+  qcacld2Firmware = pkgs.callPackage ../packages/qcacld2-firmware.nix { };
 in
 {
   options.hardware.mnt-pocket-reform = {
     enable = lib.mkEnableOption "MNT Pocket Reform with i.MX8MP hardware support";
+
+    kernelPackages = lib.mkOption {
+      type = lib.types.raw;
+      default = defaultKernelPackages;
+      defaultText = lib.literalMD "wrapped `pkgs.linuxPackages_latest` with the MNT DTB";
+      description = ''
+        Kernel package set used by the Pocket Reform. The default wraps the
+        nixpkgs `linuxPackages_latest` kernel and injects the MNT DTB into its
+        `dtbs` output without rebuilding the kernel. Override this only with a
+        kernel that provides the same DTB layout.
+      '';
+    };
+
+    panel.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable the MNT Pocket Reform panel driver.";
+    };
+
+    systemController.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable the MNT system controller (`mnt_sc`) driver.";
+    };
+
+    wifi.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable the `qcacld2` Wi-Fi driver and firmware.";
+    };
+
+    debug = lib.mkEnableOption "verbose kernel logging and `no_console_suspend` for bring-up";
+
+    bootloader = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Install the Pocket Reform U-Boot boot script. Disable this if you
+          manage `/boot` and the bootloader yourself.
+        '';
+      };
+
+      device = lib.mkOption {
+        type = lib.types.str;
+        default = "mmc 0:1";
+        description = "U-Boot device and partition containing `/boot`.";
+        example = "mmc 1:1";
+      };
+
+      kernelAddress = lib.mkOption {
+        type = lib.types.str;
+        default = "0x40480000";
+        description = "U-Boot load address for the kernel.";
+      };
+
+      fdtAddress = lib.mkOption {
+        type = lib.types.str;
+        default = "0x50000000";
+        description = "U-Boot load address for the device tree.";
+      };
+
+      initrdAddress = lib.mkOption {
+        type = lib.types.str;
+        default = "0x58000000";
+        description = "U-Boot load address for the initrd.";
+      };
+
+      removeExtlinux = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Remove `/boot/extlinux` after installing the boot script. This
+          U-Boot's extlinux loader corrupts the kernel/initrd, so the
+          directory only adds a failed boot attempt.
+        '';
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = pkgs.stdenv.hostPlatform.isAarch64;
+        message = "hardware.mnt-pocket-reform currently supports aarch64-linux only.";
+      }
+    ];
+
     boot = {
-      # Override the global `linuxPackages_latest` with the wrapped kernel
-      # (same kernel, dtbs output extended with the MNT DTB).
-      kernelPackages = lib.mkForce kernelPackages;
+      # Use the wrapped kernel (same kernel, dtbs output extended with the
+      # MNT DTB). `mkForce` is intentional: a global `boot.kernelPackages`
+      # definition (common in shared configurations) would otherwise drop the
+      # DTB wrapper. Override `hardware.mnt-pocket-reform.kernelPackages`
+      # instead.
+      kernelPackages = lib.mkForce cfg.kernelPackages;
 
-      extraModulePackages = [
-        panel
-        mntSc
-        qcacld2
-      ];
+      extraModulePackages =
+        lib.optional cfg.panel.enable panel
+        ++ lib.optional cfg.systemController.enable mntSc
+        ++ lib.optional cfg.wifi.enable qcacld2;
 
-      kernelModules = [
-        "panel-mnt-pocket-reform"
-        "mnt_sc"
-        "qcacld2"
-      ];
-      blacklistedKernelModules = [ "ath10k_sdio" ];
+      kernelModules =
+        lib.optional cfg.panel.enable "panel-mnt-pocket-reform"
+        ++ lib.optional cfg.systemController.enable "mnt_sc"
+        ++ lib.optional cfg.wifi.enable "qcacld2";
+
+      blacklistedKernelModules = lib.optional cfg.wifi.enable "ath10k_sdio";
 
       kernelParams = [
         "console=tty1"
@@ -99,17 +193,13 @@ in
         "pci=pcie_bus_perf"
         "nvme_core.default_ps_max_latency_us=0"
         "pcie_aspm=off"
+      ]
+      ++ lib.optionals cfg.debug [
         "no_console_suspend"
         "loglevel=7"
       ];
 
       initrd = {
-        systemd.contents = {
-          # Make sure the initrd root has the directories needed by the
-          # rolling-root/impermanence initrd service and the fstab mounts.
-          "/root/.keep".text = "";
-        };
-
         # Boot-critical modules: NVMe + LUKS + btrfs + USB keyboard.
         kernelModules = [
           "nvme"
@@ -122,6 +212,8 @@ in
           "sdhci"
           "sdhci-esdhc-imx"
           "usbhid"
+        ]
+        ++ lib.optionals cfg.panel.enable [
           # Force the internal panel/backlight to come up before
           # systemd-cryptsetup asks for the LUKS passphrase.
           "panel-mnt-pocket-reform"
@@ -136,13 +228,6 @@ in
         # them early so the LUKS passphrase prompt is visible on the
         # internal panel.
         availableKernelModules = [
-          "panel-mnt-pocket-reform"
-          "mnt_sc"
-          "imx-lcdif"
-          "samsung_dsim"
-          "pwm_imx27"
-          "pwm_bl"
-          "backlight"
           "mux_mmio"
           "mux_gpio"
           "gpio"
@@ -154,21 +239,30 @@ in
           "mxsfb"
           "usb_storage"
           "sd_mod"
-        ];
+        ]
+        ++ lib.optionals cfg.panel.enable [
+          "panel-mnt-pocket-reform"
+          "imx-lcdif"
+          "samsung_dsim"
+          "pwm_imx27"
+          "pwm_bl"
+          "backlight"
+        ]
+        ++ lib.optional cfg.systemController.enable "mnt_sc";
       };
 
-      loader = {
-        grub.enable = false;
-        systemd-boot.enable = false;
-        limine.enable = false;
-        efi.canTouchEfiVariables = false;
+      loader = lib.mkIf cfg.bootloader.enable {
+        grub.enable = lib.mkDefault false;
+        systemd-boot.enable = lib.mkDefault false;
+        limine.enable = lib.mkDefault false;
+        efi.canTouchEfiVariables = lib.mkDefault false;
 
         generic-extlinux-compatible = {
-          enable = true;
-          configurationLimit = 2;
+          enable = lib.mkDefault true;
+          configurationLimit = lib.mkDefault 2;
         };
 
-        timeout = 2;
+        timeout = lib.mkDefault 2;
       };
     };
 
@@ -179,52 +273,53 @@ in
     # everything at safe addresses; regenerate it on every install/rebuild so
     # `nixos-rebuild boot/switch` and `nixos-install` always point at the
     # current generation.
-    system.build.installBootLoader = lib.mkForce (
-      pkgs.writeScript "install-pocket-bootloader" ''
-        #!${pkgs.runtimeShell}
-        set -euo pipefail
-        export PATH=${
-          lib.makeBinPath [
-            pkgs.coreutils
-            pkgs.gnused
-            pkgs.ubootTools
-          ]
-        }
-        target="$1"
+    system.build.installBootLoader = lib.mkIf cfg.bootloader.enable (
+      lib.mkForce (
+        pkgs.writeScript "install-pocket-bootloader" ''
+          #!${pkgs.runtimeShell}
+          set -euo pipefail
+          export PATH=${
+            lib.makeBinPath [
+              pkgs.coreutils
+              pkgs.gnused
+              pkgs.ubootTools
+            ]
+          }
+          target="$1"
 
-        # Copy kernel/initrd/DTB to /boot/nixos and write extlinux.conf.
-        ${config.boot.loader.generic-extlinux-compatible.populateCmd} -d /boot -c "$target"
+          # Copy kernel/initrd/DTB to /boot/nixos and write extlinux.conf.
+          ${config.boot.loader.generic-extlinux-compatible.populateCmd} -d /boot -c "$target"
 
-        kernel=$(readlink -f "$target/kernel")
-        initrd=$(readlink -f "$target/initrd")
-        dtbs=$(readlink -f "$target/dtbs")
-        clean_name() { printf '%s' "$1" | sed 's|^/nix/store/||; s|/|-|g'; }
+          kernel=$(readlink -f "$target/kernel")
+          initrd=$(readlink -f "$target/initrd")
+          dtbs=$(readlink -f "$target/dtbs")
+          clean_name() { printf '%s' "$1" | sed 's|^/nix/store/||; s|/|-|g'; }
 
-        cat > /boot/boot.cmd <<EOF
-        setenv bootargs "init=$target/init $(cat "$target/kernel-params")"
-        setenv fdt_addr_r 0x50000000
-        setenv ramdisk_addr_r 0x58000000
-        load mmc 0:1 0x40480000 /nixos/$(clean_name "$kernel")
-        load mmc 0:1 0x50000000 /nixos/$(clean_name "$dtbs")/${config.hardware.deviceTree.name}
-        load mmc 0:1 0x58000000 /nixos/$(clean_name "$initrd")
-        booti 0x40480000 0x58000000:\''${filesize} 0x50000000
-        EOF
+          cat > /boot/boot.cmd <<EOF
+          setenv bootargs "init=$target/init $(cat "$target/kernel-params")"
+          setenv fdt_addr_r ${cfg.bootloader.fdtAddress}
+          setenv ramdisk_addr_r ${cfg.bootloader.initrdAddress}
+          load ${cfg.bootloader.device} ${cfg.bootloader.kernelAddress} /nixos/$(clean_name "$kernel")
+          load ${cfg.bootloader.device} ${cfg.bootloader.fdtAddress} /nixos/$(clean_name "$dtbs")/${config.hardware.deviceTree.name}
+          load ${cfg.bootloader.device} ${cfg.bootloader.initrdAddress} /nixos/$(clean_name "$initrd")
+          booti ${cfg.bootloader.kernelAddress} ${cfg.bootloader.initrdAddress}:\''${filesize} ${cfg.bootloader.fdtAddress}
+          EOF
 
-        ${pkgs.ubootTools}/bin/mkimage -A arm64 -O linux -T script -C none \
-          -d /boot/boot.cmd /boot/boot.scr
-        rm -f /boot/boot.cmd
-        # The extlinux path is unusable with this U-Boot; boot.scr is the entry
-        # point. Keeping the directory would only add a failed attempt per boot.
-        rm -rf /boot/extlinux
-      ''
+          ${pkgs.ubootTools}/bin/mkimage -A arm64 -O linux -T script -C none \
+            -d /boot/boot.cmd /boot/boot.scr
+          rm -f /boot/boot.cmd
+          # The extlinux path is unusable with this U-Boot; boot.scr is the entry
+          # point. Keeping the directory would only add a failed attempt per boot.
+          ${lib.optionalString cfg.bootloader.removeExtlinux "rm -rf /boot/extlinux"}
+        ''
+      )
     );
 
     hardware = {
-      deviceTree.name = "freescale/imx8mp-mnt-pocket-reform.dtb";
-      firmware = [ (pkgs.callPackage ../packages/qcacld2-firmware.nix { }) ];
-      enableRedistributableFirmware = true;
-      graphics.enable = true;
+      deviceTree.name = lib.mkDefault "freescale/imx8mp-mnt-pocket-reform.dtb";
+      firmware = lib.mkIf cfg.wifi.enable [ qcacld2Firmware ];
+      enableRedistributableFirmware = lib.mkDefault true;
+      graphics.enable = lib.mkDefault true;
     };
-
   };
 }
