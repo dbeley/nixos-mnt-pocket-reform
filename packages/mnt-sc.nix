@@ -27,9 +27,9 @@ stdenv.mkDerivation {
   # Upstream forgot to declare `ret` in show_capacity(); the driver does
   # not build as shipped.
   postPatch = ''
-        substituteInPlace mnt-sc.c \
-          --replace-fail '	uint16_t cap_acc_mah, cap_min_mah, cap_max_mah;' \
-          '	uint16_t cap_acc_mah, cap_min_mah, cap_max_mah;
+    substituteInPlace mnt-sc.c \
+      --replace-fail '	uint16_t cap_acc_mah, cap_min_mah, cap_max_mah;' \
+      '	uint16_t cap_acc_mah, cap_min_mah, cap_max_mah;
     	int ret = 0;'
   '';
 
@@ -52,7 +52,9 @@ stdenv.mkDerivation {
 
   postInstall = ''
     for module in $out/lib/modules/${kernel.modDirVersion}/extra/*.ko; do
-      ${lib.getExe kmodigest} "$module" || true
+      if ! ${lib.getExe kmodigest} "$module"; then
+        echo "kmodigest failed for $module; falling back to the qcacld2 certificate" >&2
+      fi
       if [ ! -e "$module.cer" ]; then
         # kmodigest did not create a certificate for this module (it is
         # unsigned); reuse the certificate from the qcacld2 module, which

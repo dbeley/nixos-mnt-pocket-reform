@@ -1,4 +1,3 @@
-{ nixos-hardware }:
 {
   config,
   lib,
@@ -36,7 +35,7 @@ let
 
   # Add the MNT DTB to the kernel's out output (the extlinux builder reads
   # $kernel/dtbs) without rebuilding the kernel itself.
-  kernelOut = pkgs.runCommand "linux-7.3-mnt-pocket-out" { } ''
+  kernelOut = pkgs.runCommand "linux-${baseKernel.version}-mnt-pocket-out" { } ''
     mkdir -p $out
     for f in ${baseKernel.out}/*; do
       [ "$(basename "$f")" = dtbs ] && continue
@@ -133,11 +132,10 @@ in
           "backlight"
         ];
 
-        # Display modules are loaded by udev in stage 2; the temporary LUKS
-        # key means the first boot does not depend on them.
+        # Display modules are loaded by udev in stage 2; the initrd loads
+        # them early so the LUKS passphrase prompt is visible on the
+        # internal panel.
         availableKernelModules = [
-          # Needed early so the internal panel and backlight are up when
-          # systemd-cryptsetup asks for the LUKS passphrase in the initrd.
           "panel-mnt-pocket-reform"
           "mnt_sc"
           "imx-lcdif"

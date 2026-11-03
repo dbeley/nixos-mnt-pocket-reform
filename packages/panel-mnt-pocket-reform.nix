@@ -6,7 +6,7 @@
 }:
 stdenv.mkDerivation {
   pname = "panel-mnt-pocket-reform";
-  version = "6.19.6";
+  version = kernel.version;
 
   src = ./panel-mnt-pocket-reform/src;
   nativeBuildInputs = kernel.moduleBuildDependencies;

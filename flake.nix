@@ -3,14 +3,12 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
   };
 
   outputs =
     {
       self,
       nixpkgs,
-      nixos-hardware,
     }:
     let
       systems = [ "aarch64-linux" ];
@@ -18,7 +16,7 @@
     in
     {
       nixosModules = {
-        pocket-reform-imx8mp = import ./modules/default.nix { inherit nixos-hardware; };
+        pocket-reform-imx8mp = import ./modules/default.nix;
         default = self.nixosModules.pocket-reform-imx8mp;
       };
 
@@ -36,5 +34,7 @@
           inherit qcacld2;
         };
       });
+
+      formatter = forAllSystems (pkgs: pkgs.nixfmt);
     };
 }
