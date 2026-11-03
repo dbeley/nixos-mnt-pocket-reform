@@ -13,6 +13,8 @@ This flake provides a NixOS module that adds:
   power-off) speaking the RP2040's s-expression protocol;
 - the `qcacld2` out-of-tree Wi-Fi driver and firmware for the QCA9377 SDIO
   module, patched for Linux 7.3;
+- the tlv320aic3100 codec mixer initialisation without which the speaker and
+  the headphone jack stay silent;
 - kernel parameters and initrd modules for the internal display, NVMe, SD and
   USB keyboard;
 - a generic-extlinux-compatible boot configuration.
@@ -68,6 +70,7 @@ All options live under `hardware.mnt-pocket-reform`:
 | `panel.enable` | `true` | Build and load the panel driver |
 | `systemController.enable` | `true` | Build and load `mnt_sc` |
 | `wifi.enable` | `true` | Build `qcacld2`, install its firmware and blacklist `ath10k_sdio` |
+| `audio.enable` | `true` | Initialise the tlv320aic3100 mixer at boot (speaker and headphone jack) |
 | `debug` | `false` | Add `loglevel=7` and `no_console_suspend` kernel parameters |
 | `bootloader.enable` | `true` | Install the generated `boot.scr` and `installBootLoader` script |
 | `bootloader.device` | `"mmc 0:1"` | U-Boot device/partition holding `/boot` |
