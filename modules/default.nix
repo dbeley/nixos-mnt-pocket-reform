@@ -66,16 +66,6 @@ in
 {
   options.hardware.mnt-pocket-reform = {
     enable = lib.mkEnableOption "MNT Pocket Reform with i.MX8MP hardware support";
-
-    temporaryLuksKeyFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = ''
-        Optional temporary LUKS key file to embed in the initrd. This is
-        intended for the first boot/debugging phase only; remove it and use a
-        passphrase once the system is validated.
-      '';
-    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -109,18 +99,10 @@ in
       ];
 
       initrd = {
-        # extlinux does not support boot.initrd.secrets: its builder copies the
-        # initrd from the store verbatim and never runs append-initrd-secrets.
-        # The only way to make the temporary key available is to embed it in
-        # the initrd image itself. Referencing a host path is impure, so
-        # evaluation/installation of the temporary-key variant requires
-        # `--impure`. This option is null (and not evaluated) for normal builds.
         systemd.contents = {
           # Make sure the initrd root has the directories needed by the
           # rolling-root/impermanence initrd service and the fstab mounts.
           "/root/.keep".text = "";
-        } // lib.optionalAttrs (cfg.temporaryLuksKeyFile != null) {
-          "/etc/luks.key".source = /. + cfg.temporaryLuksKeyFile;
         };
 
         # Boot-critical modules: NVMe + LUKS + btrfs + USB keyboard.
@@ -232,10 +214,5 @@ in
       graphics.enable = true;
     };
 
-    # Optional temporary key for the disko-created LUKS device. The key is
-    # embedded at /etc/luks.key in the initrd (see above), not at its host path.
-    boot.initrd.luks.devices = lib.mkIf (cfg.temporaryLuksKeyFile != null) {
-      "root_vg_pocket-reform".keyFile = "/etc/luks.key";
-    };
   };
 }

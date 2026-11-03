@@ -52,17 +52,18 @@ NVMe p1    : LUKS2 -> btrfs -> root / nix / persistent
 eMMC       : untouched Debian installation (fallback)
 ```
 
-## Temporary LUKS key
+## LUKS key
 
-For the first boot (when the display may not work yet), the module can embed a
-temporary key file in the initrd:
+The module does not hard-code a LUKS key. Configure it in the host, e.g. a key
+file on the microSD `/boot` partition (mounted by the initrd):
 
 ```nix
-hardware.mnt-pocket-reform.temporaryLuksKeyFile = "/path/to/luks.key";
+boot.initrd.luks.devices."root_vg_pocket-reform".keyFile = "/boot/luks.key";
+fileSystems."/boot".neededForBoot = true;
 ```
 
-Remove this option and rebuild once the system has been validated. The key
-file must also be added to the LUKS device with `cryptsetup luksAddKey`.
+Add the key to the LUKS device with `cryptsetup luksAddKey` and keep the
+passphrase in another slot as a recovery method.
 
 ## Kernel and modules
 
