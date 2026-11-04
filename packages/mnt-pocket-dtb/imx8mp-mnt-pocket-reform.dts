@@ -260,28 +260,6 @@
 		>;
 	};
 
-	pinctrl_usdhc1_100mhz: usdhc1grp-100mhz {
-		fsl,pins = <
-			MX8MP_IOMUXC_SD1_CLK__USDHC1_CLK	0x194
-			MX8MP_IOMUXC_SD1_CMD__USDHC1_CMD	0x1d4
-			MX8MP_IOMUXC_SD1_DATA0__USDHC1_DATA0	0x1d4
-			MX8MP_IOMUXC_SD1_DATA1__USDHC1_DATA1	0x1d4
-			MX8MP_IOMUXC_SD1_DATA2__USDHC1_DATA2	0x1d4
-			MX8MP_IOMUXC_SD1_DATA3__USDHC1_DATA3	0x1d4
-		>;
-	};
-
-	pinctrl_usdhc1_200mhz: usdhc1grp-200mhz {
-		fsl,pins = <
-			MX8MP_IOMUXC_SD1_CLK__USDHC1_CLK	0x196
-			MX8MP_IOMUXC_SD1_CMD__USDHC1_CMD	0x1d6
-			MX8MP_IOMUXC_SD1_DATA0__USDHC1_DATA0	0x1d6
-			MX8MP_IOMUXC_SD1_DATA1__USDHC1_DATA1	0x1d6
-			MX8MP_IOMUXC_SD1_DATA2__USDHC1_DATA2	0x1d6
-			MX8MP_IOMUXC_SD1_DATA3__USDHC1_DATA3	0x1d6
-		>;
-	};
-
 	pinctrl_usdhc1_gpio: usdhc1grp-gpio {
 		fsl,pins = <
 #define GP_USDHC1_CD	<&gpio2 11 GPIO_ACTIVE_LOW>
@@ -928,7 +906,11 @@
 	pinctrl-0 = <&pinctrl_eqos>;
 	phy-mode = "rgmii-id";
 	phy-handle = <&ethphy0>;
-	status = "okay";
+	/* The Pocket Reform has no Ethernet jack and no PHY answers on the
+	   MDIO bus (the PHY node has no reg, so the kernel scans 0..7 and
+	   finds nothing). Leave it off to avoid the "IRQ sfty not found"
+	   warning and the pointless MDIO scan at every boot. */
+	status = "disabled";
 
 	mdio {
 		compatible = "snps,dwmac-mdio";
@@ -955,10 +937,12 @@
 	//max-frequency = <12000000>;
 	bus-width = <4>;
 	cd-gpios = GP_USDHC1_CD;
-	pinctrl-names = "default"; //, "state_100mhz", "state_200mhz";
+	/* UHS modes need 1.8 V signalling on VQMMC; this rail is fixed at
+	   3.3 V here, so the card is stuck at SD high-speed (50 MHz). Only the
+	   "default" state is therefore usable — the 100/200 MHz states used to
+	   be listed without matching pinctrl-names, so they never applied. */
+	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usdhc1>, <&pinctrl_usdhc1_gpio>;
-	pinctrl-1 = <&pinctrl_usdhc1_100mhz>, <&pinctrl_usdhc1_gpio>;
-	pinctrl-2 = <&pinctrl_usdhc1_200mhz>, <&pinctrl_usdhc1_gpio>;
 	status = "okay";
 	vmmc-supply = <&reg_main_3v3>;
 	vqmmc-supply = <&reg_main_3v3>;
@@ -1025,10 +1009,15 @@
 };
 
 
-/* Job ring 1 is owned by the system controller/OP-TEE; the kernel's
-   caam_jr probe fails with -EIO. Ring 2 remains available for crypto. */
+/* All CAAM job rings are unusable on this board: JR0 is disabled in
+   imx8mp.dtsi (owned by OP-TEE) and JR1/JR2 are owned by the system
+   controller — the kernel's caam_jr probe fails with -EIO on them. */
 &crypto {
 	jr@2000 {
+		status = "disabled";
+	};
+
+	jr@3000 {
 		status = "disabled";
 	};
 };
