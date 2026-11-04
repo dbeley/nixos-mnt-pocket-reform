@@ -388,6 +388,24 @@
 		stdout-path = &uart2;
 	};
 
+	/*
+	 * Micro-HDMI (Type D) port on the i.MX8MP module. Without this node the
+	 * dw-hdmi bridge is not registered and lcdif3 fails with
+	 * "Failed to attach bridge for endpoint0" (-ENODEV); the kernel prints
+	 * "Please add a hdmi-connector DT node for imx8mp-hdmi-tx." at boot.
+	 */
+	hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "HDMI";
+		type = "d";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&hdmi_tx_out>;
+			};
+		};
+	};
+
 	memory@40000000 {
 		device_type = "memory";
 		reg = <0x0 0x40000000 0 0x80000000>;
@@ -870,6 +888,14 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hdmi>;
 	status = "okay";
+
+	ports {
+		port@1 {
+			hdmi_tx_out: endpoint {
+				remote-endpoint = <&hdmi_connector_in>;
+			};
+		};
+	};
 };
 
 &hdmi_tx_phy {
