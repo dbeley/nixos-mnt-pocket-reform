@@ -101,7 +101,8 @@ the keyboard powers up. `keyboardBacklight` overrides it from NixOS: a udev
 rule starts a oneshot service whenever the keyboard enumerates, and the service
 writes the firmware's own HID commands to the hidraw node:
 
-- `xLRGB` + 3 bytes (r, g, b) — uniform colour (`pocket-hid/src/main.c`),
+- `xLRGB` + 3 bytes — uniform colour; the payload order is (blue, green,
+  red), not plain RGB,
 - `xLBRT` + 1 byte — brightness, capped by the firmware at 150 (`0x96`).
 
 ```nix

@@ -11,6 +11,14 @@ let
   # 6 hex digits, no leading '#'.
   color = lib.removePrefix "#" kbd.color;
 
+  # Empirically checked against the firmware: the LRGB payload is
+  # (blue, green, red) — its led_set_rgb() builds the WS2812 frame as
+  # buffer[6]<<16 | buffer[5]<<8 | buffer[4], so the first byte ends up on
+  # the blue LEDs, not the red ones.
+  colorR = builtins.substring 0 2 color;
+  colorG = builtins.substring 2 2 color;
+  colorB = builtins.substring 4 2 color;
+
   # `printf '\xNN'` needs one byte per component, `lib.toHexString` returns
   # unpadded uppercase hex without a prefix.
   hexByte =
@@ -41,7 +49,7 @@ let
         grep -qi 'HID_ID=.*:00001209:00006D06' "$sys/device/uevent" || continue
         dev="/dev/''${sys##*/}"
         [ -c "$dev" ] || continue
-        printf 'xLRGB\x${builtins.substring 0 2 color}\x${builtins.substring 2 2 color}\x${builtins.substring 4 2 color}' > "$dev"
+        printf 'xLRGB\x${colorB}\x${colorG}\x${colorR}' > "$dev"
         printf 'xLBRT\x${hexByte kbd.brightness}' > "$dev"
         found=1
       done
