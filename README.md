@@ -74,6 +74,12 @@ All options live under `hardware.mnt-pocket-reform`:
 | `wifi.enable` | `true` | Build `qcacld2`, install its firmware and blacklist `ath10k_sdio` |
 | `audio.enable` | `true` | Initialise the tlv320aic3100 mixer at boot (speaker and headphone jack) |
 | `debug` | `false` | Add `loglevel=7` and `no_console_suspend` kernel parameters |
+| `power.cmaSize` | `"256MB"` | Value of the `cma=` kernel parameter; `null` uses the kernel default |
+| `power.nvmePsMaxLatencyUs` | `0` | Value of `nvme_core.default_ps_max_latency_us`; `0` disables APST, `null` uses the kernel default |
+| `power.pcieAspm` | `"off"` | Value of `pcie_aspm=`; `null` uses the platform/firmware policy |
+| `power.pcieAspmPolicy` | `null` | Value of `pcie_aspm.policy=`; only effective when ASPM is enabled |
+| `initrd.luks` | `true` | Include `dm_mod` and `dm_crypt` in the initrd |
+| `initrd.btrfs` | `true` | Include the `btrfs` module in the initrd |
 | `bootloader.enable` | `true` | Install the generated `boot.scr` and `installBootLoader` script |
 | `bootloader.device` | `"mmc 0:1"` | U-Boot device/partition holding `/boot` |
 | `bootloader.kernelAddress` | `"0x40480000"` | Kernel load address |

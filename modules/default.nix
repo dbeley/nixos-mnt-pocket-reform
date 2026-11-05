@@ -113,6 +113,80 @@ in
 
     debug = lib.mkEnableOption "verbose kernel logging and `no_console_suspend` for bring-up";
 
+    power = {
+      cmaSize = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = "256MB";
+        description = ''
+          Value of the `cma=` kernel parameter. `null` omits the parameter and
+          leaves the kernel default. Lower it to free RAM when the panel and
+          VPU do not need the full contiguous allocation.
+        '';
+      };
+
+      nvmePsMaxLatencyUs = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = 0;
+        description = ''
+          Value of `nvme_core.default_ps_max_latency_us`. `0` disables NVMe
+          APST; `null` omits the parameter and uses the kernel default. Set a
+          positive value (for example `100000`) to keep APST with a latency
+          cap.
+        '';
+      };
+
+      pcieAspm = lib.mkOption {
+        type = lib.types.nullOr (
+          lib.types.enum [
+            "off"
+            "force"
+          ]
+        );
+        default = "off";
+        description = ''
+          Value of the `pcie_aspm=` kernel parameter. `null` omits it and lets
+          the platform/firmware policy apply.
+        '';
+      };
+
+      pcieAspmPolicy = lib.mkOption {
+        type = lib.types.nullOr (
+          lib.types.enum [
+            "default"
+            "performance"
+            "powersave"
+            "powersupersave"
+          ]
+        );
+        default = null;
+        description = ''
+          Value of the `pcie_aspm.policy=` kernel parameter. Only effective
+          when ASPM is enabled, i.e. when `pcieAspm` is not `"off"`.
+        '';
+      };
+    };
+
+    initrd = {
+      luks = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Include `dm_mod` and `dm_crypt` in the initrd. Enable this when the
+          root filesystem is on LUKS; disable it for a plain root to keep the
+          initrd smaller.
+        '';
+      };
+
+      btrfs = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Include the `btrfs` module in the initrd. Disable it when the root
+          filesystem is not btrfs.
+        '';
+      };
+    };
+
     bootloader = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -191,30 +265,33 @@ in
       kernelParams = [
         "console=tty1"
         "fbcon=font:TER16x32"
-        "cma=256MB"
         "pci=pcie_bus_perf"
-        "nvme_core.default_ps_max_latency_us=0"
-        "pcie_aspm=off"
       ]
+      ++ lib.optional (cfg.power.cmaSize != null) "cma=${cfg.power.cmaSize}"
+      ++ lib.optional (
+        cfg.power.nvmePsMaxLatencyUs != null
+      ) "nvme_core.default_ps_max_latency_us=${toString cfg.power.nvmePsMaxLatencyUs}"
+      ++ lib.optional (cfg.power.pcieAspm != null) "pcie_aspm=${cfg.power.pcieAspm}"
+      ++ lib.optional (cfg.power.pcieAspmPolicy != null) "pcie_aspm.policy=${cfg.power.pcieAspmPolicy}"
       ++ lib.optionals cfg.debug [
         "no_console_suspend"
         "loglevel=7"
       ];
 
       initrd = {
-        # Boot-critical modules: NVMe + LUKS + btrfs + USB keyboard.
+        # Boot-critical modules: NVMe + optional LUKS/btrfs + USB keyboard.
         kernelModules = [
           "nvme"
           "nvme_core"
-          "dm_mod"
-          "dm_crypt"
-          "btrfs"
           "ext4"
           "mmc_block"
           "sdhci"
           "sdhci-esdhc-imx"
           "usbhid"
         ]
+        ++ lib.optional cfg.initrd.luks "dm_mod"
+        ++ lib.optional cfg.initrd.luks "dm_crypt"
+        ++ lib.optional cfg.initrd.btrfs "btrfs"
         ++ lib.optionals cfg.panel.enable [
           # Force the internal panel/backlight to come up before
           # systemd-cryptsetup asks for the LUKS passphrase.
