@@ -15,6 +15,8 @@ This flake provides a NixOS module that adds:
   module, patched for Linux 7.3;
 - the tlv320aic3100 codec mixer initialisation without which the speaker and
   the headphone jack stay silent;
+- HDMI audio: the AUD2HTX → HDMI PAI → HDMI TX path wired in the device tree,
+  using the `fsl,imx-audio-hdmi` machine driver and the dw-hdmi codec;
 - kernel parameters and initrd modules for the internal display, NVMe, SD and
   USB keyboard;
 - a generic-extlinux-compatible boot configuration.

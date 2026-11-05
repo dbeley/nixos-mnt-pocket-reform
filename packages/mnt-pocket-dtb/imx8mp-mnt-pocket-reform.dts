@@ -513,6 +513,18 @@
 		compatible = "option,gtm601";
 		#sound-dai-cells = <0>;
 	};
+
+	/*
+	 * HDMI audio. On i.MX8MP the samples go AUD2HTX -> HDMI PAI ->
+	 * HDMI TX; the machine driver links the AUD2HTX CPU DAI to the
+	 * dw-hdmi codec registered by dw-hdmi-gp-audio.
+	 */
+	sound-hdmi {
+		compatible = "fsl,imx-audio-hdmi";
+		model = "audio-hdmi";
+		audio-cpu = <&aud2htx>;
+		hdmi-out;
+	};
 };
 
 &snvs_rtc {
@@ -605,6 +617,11 @@
 	assigned-clock-rates = <24576000>;
 	fsl,sai-mclk-direction-output;
 	#sound-dai-cells = <0>;
+	status = "okay";
+};
+
+/* Feeds the HDMI TX audio path (sound-hdmi). */
+&aud2htx {
 	status = "okay";
 };
 
@@ -855,6 +872,11 @@
 };
 
 &lcdif3 {
+	status = "okay";
+};
+
+/* HDMI audio bridge (audio samples to the HDMI TX block). */
+&hdmi_pai {
 	status = "okay";
 };
 
