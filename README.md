@@ -73,6 +73,9 @@ All options live under `hardware.mnt-pocket-reform`:
 | `systemController.enable` | `true` | Build and load `mnt_sc` |
 | `wifi.enable` | `true` | Build `qcacld2`, install its firmware and blacklist `ath10k_sdio` |
 | `audio.enable` | `true` | Initialise the tlv320aic3100 mixer at boot (speaker and headphone jack) |
+| `keyboardBacklight.enable` | `false` | Set the keyboard RGB backlight colour from userspace (requires `color`) |
+| `keyboardBacklight.color` | `null` | Uniform backlight colour, `#rrggbb`; `null` keeps the firmware default |
+| `keyboardBacklight.brightness` | `150` | Backlight brightness (`0`–`150`, the firmware maximum) |
 | `debug` | `false` | Add `loglevel=7` and `no_console_suspend` kernel parameters |
 | `power.cmaSize` | `"256MB"` | Value of the `cma=` kernel parameter; `null` uses the kernel default |
 | `power.nvmePsMaxLatencyUs` | `0` | Value of `nvme_core.default_ps_max_latency_us`; `0` disables APST, `null` uses the kernel default |
@@ -89,6 +92,46 @@ All options live under `hardware.mnt-pocket-reform`:
 
 Set `hardware.mnt-pocket-reform.bootloader.device = "mmc 1:1"` (or the
 matching device) if `/boot` is on the eMMC instead of the microSD.
+
+## Keyboard backlight
+
+The keyboard has an RGB backlight whose colour is hard-coded in the keyboard
+firmware (`KBD_DEFAULT_BACKLIGHT_COLOR`, `0x200020`) and re-applied every time
+the keyboard powers up. `keyboardBacklight` overrides it from NixOS: a udev
+rule starts a oneshot service whenever the keyboard enumerates, and the service
+writes the firmware's own HID commands to the hidraw node:
+
+- `xLRGB` + 3 bytes (r, g, b) — uniform colour (`pocket-hid/src/main.c`),
+- `xLBRT` + 1 byte — brightness, capped by the firmware at 150 (`0x96`).
+
+```nix
+hardware.mnt-pocket-reform.keyboardBacklight = {
+  enable = true;
+  color = "#8f88d5";
+};
+```
+
+With [stylix](https://github.com/nix-community/stylix) the accent colour can be
+taken from the generated palette:
+
+```nix
+{ config, ... }:
+{
+  hardware.mnt-pocket-reform.keyboardBacklight = {
+    enable = true;
+    color = config.lib.stylix.colors.withHashtag.base0D;
+  };
+}
+```
+
+Caveats:
+
+- The colour is only sent when the keyboard (re)enumerates, so leaving the
+  keyboard's on-device menu (which resets the LEDs to the firmware default)
+  needs the service re-run (`systemctl start
+  mnt-pocket-reform-kbd-backlight`).
+- Per-key patterns are possible with the `xXRGB` + row + 12 × 3 bytes bitmap
+  command, but are not exposed here.
 
 ## Boot layout
 

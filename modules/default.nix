@@ -76,7 +76,10 @@ let
   qcacld2Firmware = pkgs.callPackage ../packages/qcacld2-firmware.nix { };
 in
 {
-  imports = [ ./audio.nix ];
+  imports = [
+    ./audio.nix
+    ./keyboard.nix
+  ];
 
   options.hardware.mnt-pocket-reform = {
     enable = lib.mkEnableOption "MNT Pocket Reform with i.MX8MP hardware support";
