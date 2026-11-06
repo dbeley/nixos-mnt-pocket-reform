@@ -105,6 +105,10 @@ writes the firmware's own HID commands to the hidraw node:
   red), not plain RGB,
 - `xLBRT` + 1 byte — brightness, capped by the firmware at 150 (`0x96`).
 
+`xLRGB` also resets the brightness to that colour's own value (`led_set_rgb`
+stores `hsv.v`), so the brightness has to be sent *after* the colour — which is
+why the service does exactly that.
+
 ```nix
 hardware.mnt-pocket-reform.keyboardBacklight = {
   enable = true;
