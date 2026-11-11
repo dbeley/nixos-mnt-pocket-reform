@@ -18,12 +18,14 @@ let
   colorG = lib.fromHexString (builtins.substring 2 2 color);
   colorB = lib.fromHexString (builtins.substring 4 2 color);
 
-  # The option's scale is the stock firmware's (0-150); QMK's rgb value is
-  # 0-255.
-  value = kbd.brightness * 255 / 150;
+  # Brightness is the keyboard's own business: the trackball adjusts hue and
+  # brightness while HYPER is held, and the firmware keeps that in EEPROM. 0xFF
+  # tells it to keep whatever it has; only an explicit value overrides it. The
+  # option's scale is the stock firmware's (0-150); QMK's rgb value is 0-255.
+  value = if kbd.brightness == null then 255 else kbd.brightness * 255 / 150;
 
   # QMK raw HID: a single 32-byte output report, no report id.
-  #   byte 0: 'C', bytes 1-3: r,g,b, byte 4: value, rest unused.
+  #   byte 0: 'C', bytes 1-3: r,g,b, byte 4: value (0xFF = keep), rest unused.
   # See pocket_backlight.c in qmk-config for the receiving side.
   # 67 is 'C', the "set colour" command.
   reportBytes = [
@@ -88,11 +90,15 @@ in
     };
 
     brightness = lib.mkOption {
-      type = lib.types.ints.between 0 150;
-      default = 150;
+      type = lib.types.nullOr (lib.types.ints.between 0 150);
+      default = null;
       description = ''
-        Backlight brightness, applied after the colour. Kept on the stock
-        firmware's 0-150 scale and rescaled to QMK's 0-255 before sending.
+        Backlight brightness. Leave it `null` (the default) to let the keyboard
+        keep whatever brightness it has: the trackball sets it while HYPER is
+        held, and the firmware stores it in EEPROM, so overriding it here would
+        undo those adjustments on every re-enumeration. Kept on the stock
+        firmware's 0-150 scale and rescaled to QMK's 0-255 when set. `0` turns
+        the backlight off.
       '';
     };
   };
