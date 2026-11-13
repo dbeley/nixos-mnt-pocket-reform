@@ -1,5 +1,5 @@
 {
   url = "https://source.mnt.re/reform/qcacld2.git";
-  rev = "5ed82051e9fa391448e5805d1f1a5407c5890323";
-  hash = "sha256-mL+t1i9fscqBB65TAJPq7ekkeHEOBAsgXgFyFcECgaA=";
+  rev = "9f591ce92671c333ac7fe407b7f725f37b77ebf1";
+  hash = "sha256-BmR/kYPA4T1aK6nUtCXHbEdHc2ltaRWiyir2uX4URQ0=";
 }
