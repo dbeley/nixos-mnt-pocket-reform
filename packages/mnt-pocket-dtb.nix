@@ -5,17 +5,18 @@
   dtc,
 }:
 let
-  # The MNT DTS is written against the 6.19.6 i.MX8MP device trees. The
+  # The MNT DTS includes the i.MX8MP dtsi files from the kernel tree. The
   # nixpkgs kernel dev output only ships headers, not the full dtsi files,
-  # so use the matching upstream kernel source for the includes.
+  # so use the matching upstream kernel source for the includes. Keep this
+  # in sync with `pkgs.linuxPackages_latest.kernel.version`.
   mntSource = fetchzip {
-    url = "mirror://kernel/linux/kernel/v6.x/linux-6.19.6.tar.xz";
-    hash = "sha256-cdQbdColRBCzQPWojIVpLs6Rmuk91bBPtqf8DsmkSxU=";
+    url = "mirror://kernel/linux/kernel/v7.x/linux-7.3.4.tar.xz";
+    hash = "sha256-2q+CPRxgupua+EC7Smr0EUQCS2AFyZWGBd7oDM/vjmM=";
   };
 in
 stdenv.mkDerivation {
   pname = "mnt-pocket-dtb";
-  version = "6.19.6";
+  version = "7.3.4";
 
   src = ./mnt-pocket-dtb;
   nativeBuildInputs = [ dtc ];
