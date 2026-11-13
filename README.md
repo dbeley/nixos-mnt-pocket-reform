@@ -12,7 +12,8 @@ This flake provides a NixOS module that adds:
 - the `mnt_sc` system-controller driver (battery, backlight, GPIOs,
   power-off) speaking the RP2040's s-expression protocol;
 - the `qcacld2` out-of-tree Wi-Fi driver and firmware for the QCA9377 SDIO
-  module, patched for Linux 7.3;
+  module, built from the upstream `binary-deb` branch (including its Linux
+  7.3 `cfg80211` fix);
 - the tlv320aic3100 codec mixer initialisation without which the speaker and
   the headphone jack stay silent;
 - HDMI audio: the AUD2HTX → HDMI PAI → HDMI TX path wired in the device tree,
@@ -74,8 +75,9 @@ All options live under `hardware.mnt-pocket-reform`:
 | `wifi.enable` | `true` | Build `qcacld2`, install its firmware and blacklist `ath10k_sdio` |
 | `audio.enable` | `true` | Initialise the tlv320aic3100 mixer at boot (speaker and headphone jack) |
 | `keyboardBacklight.enable` | `false` | Set the keyboard RGB backlight colour from userspace (requires `color`) |
-| `keyboardBacklight.color` | `null` | Uniform backlight colour, `#rrggbb`; `null` keeps the firmware default |
-| `keyboardBacklight.brightness` | `150` | Backlight brightness (`0`–`150`, the firmware maximum) |
+| `keyboardBacklight.firmware` | `"auto"` | Keyboard firmware: `auto` detect, `stock` (original), or `qmk` |
+| `keyboardBacklight.color` | `null` | Uniform backlight colour, `#rrggbb`; `null` leaves the backlight alone |
+| `keyboardBacklight.brightness` | `null` | Backlight brightness (`0`–`150`); `null` keeps QMK's value / uses `150` on the original firmware |
 | `debug` | `false` | Add `loglevel=7` and `no_console_suspend` kernel parameters |
 | `power.cmaSize` | `"256MB"` | Value of the `cma=` kernel parameter; `null` uses the kernel default |
 | `power.nvmePsMaxLatencyUs` | `0` | Value of `nvme_core.default_ps_max_latency_us`; `0` disables APST, `null` uses the kernel default |
@@ -95,24 +97,46 @@ matching device) if `/boot` is on the eMMC instead of the microSD.
 
 ## Keyboard backlight
 
-The keyboard has an RGB backlight whose colour is hard-coded in the keyboard
-firmware (`KBD_DEFAULT_BACKLIGHT_COLOR`, `0x200020`) and re-applied every time
-the keyboard powers up. `keyboardBacklight` overrides it from NixOS: a udev
-rule starts a oneshot service whenever the keyboard enumerates, and the service
-writes the firmware's own HID commands to the hidraw node:
+Two keyboard firmware variants are supported:
 
-- `xLRGB` + 3 bytes — uniform colour; the payload order is (blue, green,
-  red), not plain RGB,
-- `xLBRT` + 1 byte — brightness, capped by the firmware at 150 (`0x96`).
+- the **original MNT firmware** (USB `1209:6d06`), which understands the
+  `xLRGB`/`xLBRT` HID commands, and
+- **QMK** (USB `FEED:0000`), which exposes a vendor raw HID interface and
+  takes a 32-byte report.
 
-`xLRGB` also resets the brightness to that colour's own value (`led_set_rgb`
-stores `hsv.v`), so the brightness has to be sent *after* the colour — which is
-why the service does exactly that.
+`keyboardBacklight.firmware` defaults to `"auto"`, which picks the protocol
+from the hidraw node's USB id. Set it to `"stock"` or `"qmk"` to force one
+protocol if autodetection is ambiguous. A udev rule starts a oneshot service
+whenever the keyboard enumerates, and the service writes the matching report
+to every relevant hidraw node. Autodetection and the udev rules use the stock
+firmware's `1209:6d06` and QMK's `FEED:0000` ids.
+
+The **original firmware** commands are:
+
+- `xLRGB` + 3 bytes: uniform colour; the payload order is (blue, green, red),
+  not plain RGB;
+- `xLBRT` + 1 byte: brightness on the firmware's 0–150 scale. `xLRGB` resets
+  the brightness to the colour's own value, so `xLBRT` has to follow it.
+
+The **QMK** report is:
+
+- byte 0: `'C'` (the "set colour" command),
+- bytes 1–3: red, green, blue (natural RGB order),
+- byte 4: brightness (0–254, or `0xFF` to keep the current value),
+- bytes 5–31: unused.
+
+QMK converts the colour to HSV and hands it to `rgblight`, and keeps its RGB
+state in EEPROM. The trackball also adjusts hue and brightness while HYPER is
+held, so `keyboardBacklight.brightness` defaults to `null`: for QMK the
+service then sends `0xFF` and leaves the keyboard's own brightness alone. The
+original firmware has no "keep" command, so `null` sends its maximum (`150`)
+there. Set a value on the 0–150 scale to pin it; `0` turns the backlight off.
 
 ```nix
 hardware.mnt-pocket-reform.keyboardBacklight = {
   enable = true;
   color = "#8f88d5";
+  # firmware = "auto"; # or "stock" / "qmk"
 };
 ```
 
@@ -131,12 +155,11 @@ taken from the generated palette:
 
 Caveats:
 
-- The colour is only sent when the keyboard (re)enumerates, so leaving the
-  keyboard's on-device menu (which resets the LEDs to the firmware default)
-  needs the service re-run (`systemctl start
-  mnt-pocket-reform-kbd-backlight`).
-- Per-key patterns are possible with the `xXRGB` + row + 12 × 3 bytes bitmap
-  command, but are not exposed here.
+- The colour is only sent when the keyboard (re)enumerates or when the service
+  is started, so after changing the keyboard's own RGB state (for example from
+  its on-device menu) run `systemctl start
+  mnt-pocket-reform-kbd-backlight`.
+- Per-key patterns are not exposed here.
 
 ## Boot layout
 
@@ -168,18 +191,20 @@ passphrase in another slot as a recovery method.
 ## Kernel and modules
 
 The default `hardware.mnt-pocket-reform.kernelPackages` wraps
-`pkgs.linuxPackages_latest` (Linux 7.3.x at the time of writing) instead of the
-MNT 6.19.6 kernel tree. The MNT kernel config builds around 7,500 modules and
-takes many hours on the 4-core i.MX8MP; the nixpkgs kernel is already in the
-binary cache. Override the option only with a kernel that also exposes a
-`dtbs` output.
+`pkgs.linuxPackages_latest` (Linux 7.3.x at the time of writing) instead of
+building an MNT kernel tree. The MNT kernel config builds around 7,500 modules
+and takes many hours on the 4-core i.MX8MP; the nixpkgs kernel is already in
+the binary cache. Override the option only with a kernel that also exposes a
+`dtbs` output. The DTB is compiled against the matching 7.3.4 kernel source so
+its `imx8mp.dtsi` includes agree with the running kernel.
 
 The missing MNT pieces are provided out-of-tree:
 
 - `panel-mnt-pocket-reform` (ported to `devm_drm_panel_alloc`),
 - `mnt_sc` (`system-controller/` in `reform-tools`, using the 7.3
   `power_supply_config.fwnode` API),
-- `qcacld2` (Linux 7.3 `cfg80211` callback changes; P2P ops disabled).
+- `qcacld2` (upstream `binary-deb` already carries the Linux 7.3
+  `cfg80211` cookie fix; no local patch is needed).
 
 All enabled modules are signed with `kmodigest`, as required by the NixOS 26.11
 kernel-modules certificate aggregation. `mnt_sc` falls back to the `qcacld2`
