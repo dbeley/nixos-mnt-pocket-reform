@@ -14,7 +14,9 @@ let
   baseKernelPackages = pkgs.linuxPackages_latest;
   baseKernel = baseKernelPackages.kernel;
 
-  mntDtb = pkgs.callPackage ../packages/mnt-pocket-dtb.nix { };
+  mntDtb = pkgs.callPackage ../packages/mnt-pocket-dtb.nix {
+    kernel = baseKernel;
+  };
 
   # Add the MNT DTB to the kernel's out output (the extlinux builder reads
   # $kernel/dtbs) without rebuilding the kernel itself.

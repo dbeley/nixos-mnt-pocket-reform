@@ -29,7 +29,9 @@
         panel-mnt-pocket-reform = pkgs.callPackage ./packages/panel-mnt-pocket-reform.nix {
           kernel = pkgs.linuxPackages_latest.kernel;
         };
-        mnt-pocket-dtb = pkgs.callPackage ./packages/mnt-pocket-dtb.nix { };
+        mnt-pocket-dtb = pkgs.callPackage ./packages/mnt-pocket-dtb.nix {
+          kernel = pkgs.linuxPackages_latest.kernel;
+        };
         mnt-sc = pkgs.callPackage ./packages/mnt-sc.nix {
           kernel = pkgs.linuxPackages_latest.kernel;
           inherit qcacld2;

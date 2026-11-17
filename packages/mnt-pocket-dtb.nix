@@ -1,29 +1,30 @@
 {
   stdenv,
   lib,
-  fetchzip,
+  kernel,
   dtc,
+  xz,
 }:
-let
-  # The MNT DTS includes the i.MX8MP dtsi files from the kernel tree. The
-  # nixpkgs kernel dev output only ships headers, not the full dtsi files,
-  # so use the matching upstream kernel source for the includes. Keep this
-  # in sync with `pkgs.linuxPackages_latest.kernel.version`.
-  mntSource = fetchzip {
-    url = "mirror://kernel/linux/kernel/v7.x/linux-7.3.4.tar.xz";
-    hash = "sha256-2q+CPRxgupua+EC7Smr0EUQCS2AFyZWGBd7oDM/vjmM=";
-  };
-in
 stdenv.mkDerivation {
   pname = "mnt-pocket-dtb";
-  version = "7.3.4";
+  version = kernel.version;
 
   src = ./mnt-pocket-dtb;
-  nativeBuildInputs = [ dtc ];
+  nativeBuildInputs = [
+    dtc
+    xz
+  ];
 
   buildPhase = ''
     runHook preBuild
-    KSRC=${mntSource}
+
+    # The MNT DTS includes the i.MX8MP dtsi files from the kernel tree, but
+    # the kernel's dev output only ships headers. Use the source of the very
+    # kernel that loads the blob, so the includes cannot drift from it.
+    mkdir -p kernel-source
+    tar -xf ${kernel.src} -C kernel-source --strip-components=1
+    KSRC=$PWD/kernel-source
+
     cpp -nostdinc \
       -I$PWD/include \
       -I$KSRC/include \

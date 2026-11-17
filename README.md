@@ -195,8 +195,9 @@ The default `hardware.mnt-pocket-reform.kernelPackages` wraps
 building an MNT kernel tree. The MNT kernel config builds around 7,500 modules
 and takes many hours on the 4-core i.MX8MP; the nixpkgs kernel is already in
 the binary cache. Override the option only with a kernel that also exposes a
-`dtbs` output. The DTB is compiled against the matching 7.3.4 kernel source so
-its `imx8mp.dtsi` includes agree with the running kernel.
+`dtbs` output. The DTB is compiled against the source of that same kernel
+(`kernel.src`), so its `imx8mp.dtsi` includes always agree with the running
+kernel and there is no version to keep in sync by hand.
 
 The missing MNT pieces are provided out-of-tree:
 
