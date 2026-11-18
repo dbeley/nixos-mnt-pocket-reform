@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
 {
   description = "NixOS hardware support for the MNT Pocket Reform with i.MX8MP";
 

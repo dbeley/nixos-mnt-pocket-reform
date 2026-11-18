@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
 {
   url = "https://source.mnt.re/reform/qcacld2.git";
   rev = "9f591ce92671c333ac7fe407b7f725f37b77ebf1";

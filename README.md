@@ -251,3 +251,20 @@ plus a suspend notifier that powers down the auxiliary rails with
   builder only needs that DTB for this machine.
 - `nix flake check` builds the DTB and firmware packages; `nix develop` provides
   `dtc`, `nixfmt` and `ubootTools`.
+
+## License
+
+The flake, the NixOS modules and the `mnt_sc`/`qcacld2` packaging are released
+under the GNU General Public License v3.0 only (`GPL-3.0-only`); see
+[LICENSE](LICENSE).
+
+Files imported from other projects keep their own license, as stated in their
+SPDX headers:
+
+- `packages/panel-mnt-pocket-reform/src/` is a port of a kernel driver and stays
+  `GPL-2.0-only`, which is *not* compatible with GPL-3.0 — it is distributed as
+  a separate work alongside the rest of this repository;
+- `packages/mnt-pocket-dtb/` (device tree and bindings) is
+  `GPL-2.0-or-later OR MIT`, from MNT Research and the Linux kernel;
+- the `qcacld2` driver and firmware are fetched from upstream at build time and
+  are not relicensed here.
