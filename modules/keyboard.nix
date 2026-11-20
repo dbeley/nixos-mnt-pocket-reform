@@ -165,26 +165,37 @@ in
     };
   };
 
-  config = lib.mkIf (cfg.enable && kbd.enable && kbd.color != null) {
-    services.udev.extraRules =
-      lib.optionalString sendStock ''
-        ACTION=="add", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="${stockVendor}", ATTRS{idProduct}=="${stockProduct}", TAG+="systemd", ENV{SYSTEMD_WANTS}+="mnt-pocket-reform-kbd-backlight.service"
-      ''
-      + lib.optionalString sendQmk ''
-        ACTION=="add", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="${qmkVendor}", ATTRS{idProduct}=="${qmkProduct}", TAG+="systemd", ENV{SYSTEMD_WANTS}+="mnt-pocket-reform-kbd-backlight.service"
+  config = lib.mkMerge [
+    # The raw HID status screen (pocket-hud writes to it) and status.sh both
+    # talk to the QMK keyboard as the logged-in user, so hand its hidraw nodes
+    # to the active seat instead of requiring root or sudo.
+    (lib.mkIf cfg.enable {
+      services.udev.extraRules = ''
+        SUBSYSTEM=="hidraw", ATTRS{idVendor}=="${qmkVendor}", ATTRS{idProduct}=="${qmkProduct}", TAG+="uaccess"
       '';
+    })
 
-    systemd.services.mnt-pocket-reform-kbd-backlight = {
-      description = "Set the MNT Pocket Reform keyboard backlight colour";
-      wantedBy = [ "multi-user.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        # Re-run on every udev `add` event, including replugs after boot.
-        RemainAfterExit = false;
-        ExecStart = lib.getExe script;
+    (lib.mkIf (cfg.enable && kbd.enable && kbd.color != null) {
+      services.udev.extraRules =
+        lib.optionalString sendStock ''
+          ACTION=="add", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="${stockVendor}", ATTRS{idProduct}=="${stockProduct}", TAG+="systemd", ENV{SYSTEMD_WANTS}+="mnt-pocket-reform-kbd-backlight.service"
+        ''
+        + lib.optionalString sendQmk ''
+          ACTION=="add", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="${qmkVendor}", ATTRS{idProduct}=="${qmkProduct}", TAG+="systemd", ENV{SYSTEMD_WANTS}+="mnt-pocket-reform-kbd-backlight.service"
+        '';
+
+      systemd.services.mnt-pocket-reform-kbd-backlight = {
+        description = "Set the MNT Pocket Reform keyboard backlight colour";
+        wantedBy = [ "multi-user.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          # Re-run on every udev `add` event, including replugs after boot.
+          RemainAfterExit = false;
+          ExecStart = lib.getExe script;
+        };
+        # Re-run on `nixos-rebuild switch` when the colour changes.
+        restartTriggers = [ script ];
       };
-      # Re-run on `nixos-rebuild switch` when the colour changes.
-      restartTriggers = [ script ];
-    };
-  };
+    })
+  ];
 }
